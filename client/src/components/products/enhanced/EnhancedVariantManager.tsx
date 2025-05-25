@@ -90,11 +90,6 @@ const EnhancedVariantManager = ({
   const [bulkEditData, setBulkEditData] = useState<{
     sellingPrice?: string;
     mrp?: string;
-    gst?: string;
-    purchasePrice?: string;
-    sku?: string;
-    barcode?: string;
-    weight?: string;
     inventoryQuantity?: number;
   }>({});
   const [selectedVariants, setSelectedVariants] = useState<string[]>([]);

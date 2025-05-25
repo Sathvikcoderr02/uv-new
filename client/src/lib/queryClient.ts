@@ -1,17 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-// Get base URL for API requests
-const getBaseUrl = () => {
-  if (typeof window !== 'undefined') {
-    // Browser environment
-    return process.env.NODE_ENV === 'production'
-      ? window.location.origin
-      : 'http://localhost:5000';
-  }
-  // Server-side environment
-  return process.env.API_URL || 'http://localhost:5000';
-};
-
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -19,48 +7,44 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-// API request function
-export const apiRequest = async (method: string, endpoint: string, body?: any) => {
-  const baseUrl = getBaseUrl();
-  const url = `${baseUrl}${endpoint}`;
-  
-  const response = await fetch(url, {
+export async function apiRequest(
+  method: string,
+  url: string,
+  data?: unknown | undefined,
+): Promise<Response> {
+  const res = await fetch(url, {
     method,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-    body: body ? JSON.stringify(body) : undefined,
+    headers: data ? { "Content-Type": "application/json" } : {},
+    body: data ? JSON.stringify(data) : undefined,
+    credentials: "include",
   });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'API request failed');
-  }
+  await throwIfResNotOk(res);
+  return res;
+}
 
-  return response;
-};
+type UnauthorizedBehavior = "returnNull" | "throw";
+export const getQueryFn: <T>(options: {
+  on401: UnauthorizedBehavior;
+}) => QueryFunction<T> =
+  ({ on401: unauthorizedBehavior }) =>
+  async ({ queryKey }) => {
+    const res = await fetch(queryKey[0] as string, {
+      credentials: "include",
+    });
 
-// Query function for React Query
-export const getQueryFn: QueryFunction = async ({ queryKey }) => {
-  const baseUrl = getBaseUrl();
-  const endpoint = queryKey[0] as string;
-  const response = await fetch(`${baseUrl}${endpoint}`, {
-    credentials: 'include',
-  });
-  
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Query failed');
-  }
-  
-  return response.json();
-};
+    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+      return null;
+    }
+
+    await throwIfResNotOk(res);
+    return await res.json();
+  };
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      queryFn: getQueryFn,
+      queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: Infinity,

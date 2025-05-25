@@ -41,21 +41,19 @@ const LoginPage = () => {
   const [error, setError] = useState<string | null>(null);
   const { requestOtpMutation, verifyOtpMutation, user, isAuthenticated } = useAuth();
   const { toast } = useToast();
-  const [location, setLocation] = useLocation();
-  const redirectTo = new URLSearchParams(location.split('?')[1] || '').get('redirect');
+  const [, setLocation] = useLocation();
 
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      if (redirectTo) {
-        setLocation(redirectTo);
-      } else if (user?.role === 'super_admin') {
+      // Redirect based on user role
+      if (user?.role === 'super_admin') {
         setLocation('/admin');
       } else {
         setLocation('/dashboard');
       }
     }
-  }, [isAuthenticated, user, setLocation, redirectTo]);
+  }, [isAuthenticated, user, setLocation]);
 
   // Email form
   const emailForm = useForm<EmailFormValues>({
