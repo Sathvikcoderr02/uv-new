@@ -3,6 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useEffect, useState } from "react";
 import NotFound from "@/pages/not-found";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -24,8 +25,8 @@ import AnalyticsPage from "@/pages/analytics/AnalyticsPage";
 import VendorAnalyticsPage from "@/pages/analytics/VendorAnalyticsPage";
 import SettingsPage from "@/pages/settings/SettingsPage";
 import ProductsPage from "./pages/products/ProductsPage";
-import ProductDetails from "./pages/products/ProductDetails";
 import ProductCategoriesPage from "./pages/products/ProductCategoriesPage";
+import ProductDetailPage from "./pages/products/ProductDetailPage";
 import ProductSubcategoriesPage from "./pages/products/ProductSubcategoriesPage";
 import OrdersPage from "./pages/orders/OrdersPage";
 import CustomersPage from "./pages/customers/CustomersPage";
@@ -39,6 +40,61 @@ import ReportsPage from "./pages/reports/ReportsPage";
 import SubscriptionPage from "./pages/vendor/SubscriptionPage";
 import S3UploadTestPage from "./pages/s3-upload-test";
 import PrivateRoute from "@/components/PrivateRoute";
+
+// Cart Icon with Counter Component
+function CartIconWithCounter() {
+  const [cartItemCount, setCartItemCount] = useState(0);
+
+  useEffect(() => {
+    // Function to update cart count
+    const updateCartCount = () => {
+      try {
+        const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+        const count = cart.reduce((total: number, item: any) => total + item.quantity, 0);
+        setCartItemCount(count);
+      } catch (error) {
+        console.error('Error reading cart from localStorage:', error);
+        setCartItemCount(0);
+      }
+    };
+
+    // Update count on mount
+    updateCartCount();
+
+    // Set up storage event listener to update count when cart changes
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'cart') {
+        updateCartCount();
+      }
+    };
+
+    // Listen for storage events (when cart is updated from another tab)
+    window.addEventListener('storage', handleStorageChange);
+
+    // Custom event for same-tab updates
+    const handleCustomEvent = () => updateCartCount();
+    window.addEventListener('cartUpdated', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('cartUpdated', handleCustomEvent);
+    };
+  }, []);
+
+  return (
+    <a href="/cart.html" className="flex items-center text-gray-700 hover:text-indigo-600 relative">
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+      </svg>
+      <span className="ml-2 text-sm font-medium hidden sm:inline">Cart</span>
+      {cartItemCount > 0 && (
+        <span className="absolute -top-2 -right-2 bg-indigo-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+          {cartItemCount > 99 ? '99+' : cartItemCount}
+        </span>
+      )}
+    </a>
+  );
+}
 
 function Router() {
   const { isVendorStore } = useVendorStore();
@@ -110,6 +166,9 @@ function Router() {
                 </div>
 
                 <div className="flex items-center space-x-4">
+                  {/* Cart Icon with Counter */}
+                  <CartIconWithCounter />
+                  
                   {/* Test Store Link - only for development */}
                   {process.env.NODE_ENV === 'development' && (
                     <Link href="/test-store" className="flex items-center text-amber-600 hover:text-amber-700">
@@ -136,14 +195,7 @@ function Router() {
                     <span className="ml-2 text-sm font-medium hidden sm:inline">Wishlist</span>
                   </a>
 
-                  {/* Cart */}
-                  <a href="#" className="flex items-center text-gray-700 hover:text-indigo-600 relative">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                    </svg>
-                    <span className="ml-2 text-sm font-medium hidden sm:inline">Cart</span>
-                    <span className="absolute -top-2 -right-2 bg-indigo-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">3</span>
-                  </a>
+                  {/* Cart icon is now handled by CartIconWithCounter component above */}
                 </div>
               </div>
 
@@ -260,6 +312,37 @@ function Router() {
                 <a href="#" className="text-indigo-600 font-medium hover:underline">View All</a>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {/* Allen Solly Shirt */}
+                <Link href="/products/14" className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                  <div className="relative">
+                    <div className="aspect-square bg-gray-200 relative">
+                      <img 
+                        src="https://images.unsplash.com/photo-1596755094514-f87e34085b2c?q=80&w=1976&auto=format&fit=crop&ixlib=rb-4.0.3" 
+                        alt="Allen Solly Shirt"
+                        className="w-full h-full object-cover" 
+                      />
+                    </div>
+                    <div className="absolute top-2 left-2">
+                      <span className="bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded">FEATURED</span>
+                    </div>
+                    <button className="absolute top-2 right-2 bg-white p-1.5 rounded-full text-gray-700 hover:text-red-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="p-4">
+                    <h3 className="text-sm text-gray-500 mb-1">Fashion</h3>
+                    <h4 className="font-medium text-gray-900 mb-2 truncate">Allen Solly Shirt</h4>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-lg font-bold text-gray-900">$59.99</span>
+                        <span className="text-sm text-gray-500 line-through ml-2">$79.99</span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+                
                 {/* Product 1 */}
                 <div className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                   <div className="relative">
@@ -598,9 +681,7 @@ function Router() {
       </Route>
       <Route path="/products/:id">
         {params => (
-          <PrivateRoute roles={["vendor"]}>
-            <ProductDetails id={params.id} />
-          </PrivateRoute>
+          <ProductDetailPage />
         )}
       </Route>
       <Route path="/orders">

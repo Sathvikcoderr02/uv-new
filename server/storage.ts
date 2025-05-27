@@ -2580,7 +2580,23 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .delete(products)
       .where(eq(products.id, id));
-    return result.count > 0;
+    return result.rowCount > 0;
+  }
+
+  // Product variant operations
+  async getProductVariant(id: number): Promise<ProductVariant | undefined> {
+    const result = await db
+      .select()
+      .from(productVariants)
+      .where(eq(productVariants.id, id));
+    return result[0];
+  }
+
+  async getProductVariantsByProductId(productId: number): Promise<ProductVariant[]> {
+    return db
+      .select()
+      .from(productVariants)
+      .where(eq(productVariants.productId, productId));
   }
 
   // Customer operations

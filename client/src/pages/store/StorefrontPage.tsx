@@ -11,13 +11,13 @@ import CategoryNav from '@/components/store/CategoryNav';
 interface Product {
   id: number;
   name: string;
-  price: string;
-  compareAtPrice: string | null;
-  imageUrl: string | null;
+  sellingPrice: string | number;
+  mrp: string | number;
+  featuredImageUrl: string | null;
   description: string | null;
   status: string;
-  sku: string;
-  categoryId: number;
+  sku: string | null;
+  categoryId: number | null;
   inventoryQuantity: number;
 }
 
@@ -193,18 +193,18 @@ export default function StorefrontPage() {
                 {products.map((product) => (
                   <div key={product.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                     <div className="aspect-square bg-gray-100 relative">
-                      {product.imageUrl ? (
+                      {product.featuredImageUrl ? (
                         <img 
-                          src={product.imageUrl} 
+                          src={product.featuredImageUrl} 
                           alt={product.name}
                           className="w-full h-full object-cover" 
                         />
                       ) : (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <ShoppingBag className="h-12 w-12 text-gray-300" />
+                        <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                          <ShoppingBag className="h-12 w-12 text-gray-400" />
                         </div>
                       )}
-                      {product.compareAtPrice && (
+                      {product.mrp && product.sellingPrice && product.mrp > product.sellingPrice && (
                         <div className="absolute top-2 left-2">
                           <span className="bg-accent text-accent-foreground text-xs font-bold px-2 py-1 rounded">SALE</span>
                         </div>
@@ -214,9 +214,9 @@ export default function StorefrontPage() {
                       <h3 className="font-medium text-gray-900 mb-2 truncate">{product.name}</h3>
                       <div className="flex items-center justify-between">
                         <div>
-                          <span style={{ color: 'var(--color-primary)' }} className="font-bold">${product.price}</span>
-                          {product.compareAtPrice && (
-                            <span className="text-sm text-gray-500 line-through ml-2">${product.compareAtPrice}</span>
+                          <span className="text-lg font-bold text-gray-900">${typeof product.sellingPrice === 'string' ? parseFloat(product.sellingPrice).toFixed(2) : product.sellingPrice.toFixed(2)}</span>
+                          {product.mrp && product.sellingPrice && product.mrp > product.sellingPrice && (
+                            <span className="text-sm text-gray-500 line-through ml-2">${typeof product.mrp === 'string' ? parseFloat(product.mrp).toFixed(2) : product.mrp.toFixed(2)}</span>
                           )}
                         </div>
                         <Button size="sm" variant="outline" className="rounded-full p-2">

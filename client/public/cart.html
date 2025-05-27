@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Cart - UniVendor</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    .cart-item {
+      display: flex;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 1rem 0;
+    }
+    .cart-empty {
+      text-align: center;
+      padding: 3rem 0;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.375rem;
+      font-weight: 500;
+      padding: 0.5rem 1rem;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background-color: #3b82f6;
+      color: white;
+    }
+    .btn-primary:hover {
+      background-color: #2563eb;
+    }
+    .btn-outline {
+      border: 1px solid #e5e7eb;
+      background-color: transparent;
+    }
+    .btn-outline:hover {
+      background-color: #f9fafb;
+    }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <div class="container mx-auto px-4 py-8 max-w-6xl">
+    <header class="mb-8">
+      <div class="flex items-center justify-between">
+        <h1 class="text-3xl font-bold">Your Cart</h1>
+        <a href="/" class="btn btn-outline">Back to Store</a>
+      </div>
+    </header>
+
+    <main>
+      <div id="cart-content" class="bg-white shadow rounded-lg p-6">
+        <!-- Cart content will be loaded here -->
+        <div class="cart-empty">
+          <p class="text-xl font-medium mb-4">Loading your cart...</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Function to update item quantity
+      window.updateQuantity = function(index, newQuantity) {
+        // Get current cart
+        let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+
+        // Don't allow quantity less than 1
+        if (newQuantity < 1) {
+          if (confirm('Remove this item from cart?')) {
+            removeItem(index);
+          }
+          return;
+        }
+
+        // Update quantity
+        if (cart[index]) {
+          cart[index].quantity = newQuantity;
+          localStorage.setItem('cart', JSON.stringify(cart));
+
+          // Reload cart to show updated quantities
+          loadCart();
+        }
+      };
+
+      // Function to remove item from cart
+      window.removeItem = function(index) {
+        // Get current cart
+        let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+
+        // Remove the item
+        if (cart[index]) {
+          cart.splice(index, 1);
+          localStorage.setItem('cart', JSON.stringify(cart));
+
+          // Reload cart
+          loadCart();
+        }
+      };
+
+      // Function to redirect to login page
+      window.redirectToLogin = function() {
+        // Store the fact that user was trying to checkout in localStorage
+        localStorage.setItem('redirectAfterLogin', '/checkout');
+
+        // Redirect to login page
+        window.location.href = '/login';
+        return false; // Prevent default behavior
+      };
+      
+      // Load cart from localStorage
+      function loadCart() {
+        try {
+          const cartData = localStorage.getItem('cart');
+          if (cartData) {
+            const cartItems = JSON.parse(cartData);
+            if (cartItems && cartItems.length > 0) {
+              renderCart(cartItems);
+            } else {
+              renderEmptyCart();
+            }
+          } else {
+            renderEmptyCart();
+          }
+        } catch (error) {
+          console.error('Error loading cart:', error);
+          renderEmptyCart();
+        }
+      }
+
+      // Render cart items
+      function renderCart(items) {
+        const cartContent = document.getElementById('cart-content');
+
+        // Calculate subtotal
+        const subtotal = items.reduce((sum, item) => {
+          return sum + (parseFloat(item.price) * item.quantity);
+        }, 0).toFixed(2);
+
+        let html = `
+          <div class="mb-6">
+            <h2 class="text-xl font-semibold mb-4">Cart Items (${items.length})</h2>
+            <div class="divide-y">
+        `;
+
+        // Add each item
+        items.forEach((item, index) => {
+          const itemTotal = (parseFloat(item.price) * item.quantity).toFixed(2);
+          html += `
+            <div class="cart-item">
+              <div class="flex items-center gap-4">
+                <!-- Product Image -->
+                <div class="h-16 w-16 bg-gray-100 rounded overflow-hidden flex-shrink-0">
+                  ${item.imageUrl ? `<img src="${item.imageUrl}" alt="${item.name}" class="h-full w-full object-cover">` : 
+                    `<div class="h-full w-full flex items-center justify-center bg-gray-200"><span class="text-gray-400 text-xs">No image</span></div>`}
+                </div>
+                
+                <div class="flex-1">
+                  <h3 class="font-medium">${item.name}</h3>
+                  <p class="text-sm text-gray-500">
+                    ${item.color ? `Color: ${item.color}` : ''}
+                    ${item.size ? `, Size: ${item.size}` : ''}
+                  </p>
+                </div>
+                
+                <!-- Quantity Controls -->
+                <div class="flex items-center border rounded overflow-hidden">
+                  <button class="px-3 py-1 bg-gray-100 hover:bg-gray-200" onclick="updateQuantity(${index}, ${item.quantity - 1})">
+                    -
+                  </button>
+                  <span class="px-3 py-1">${item.quantity}</span>
+                  <button class="px-3 py-1 bg-gray-100 hover:bg-gray-200" onclick="updateQuantity(${index}, ${item.quantity + 1})">
+                    +
+                  </button>
+                </div>
+                
+                <!-- Item Price -->
+                <div class="text-right min-w-[80px]">
+                  <p class="font-medium">₹${parseFloat(item.price).toFixed(2)}</p>
+                  <p class="text-sm text-gray-500">Total: ₹${itemTotal}</p>
+                </div>
+                
+                <!-- Delete Button -->
+                <button class="text-red-500 hover:text-red-700 p-1" onclick="removeItem(${index})">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18"></path>
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          `;
+        });
+
+        html += `
+            </div>
+          </div>
+          <div class="border-t pt-4">
+            <div class="flex justify-between mb-2">
+              <span>Subtotal</span>
+              <span>₹${subtotal}</span>
+            </div>
+            <div class="flex justify-between mb-4">
+              <span>Shipping</span>
+              <span>Free</span>
+            </div>
+            <div class="flex justify-between font-bold text-lg">
+              <span>Total</span>
+              <span>₹${subtotal}</span>
+            </div>
+            <div class="mt-6">
+              <button id="checkout-button" class="btn btn-primary w-full py-3" onclick="redirectToLogin()">Proceed to Checkout</button>
+            </div>
+          </div>
+        `;
+
+        cartContent.innerHTML = html;
+      }
+
+      // Render empty cart
+      function renderEmptyCart() {
+        const cartContent = document.getElementById('cart-content');
+        cartContent.innerHTML = `
+          <div class="cart-empty">
+            <p class="text-xl font-medium mb-4">Your cart is empty</p>
+            <p class="text-gray-500 mb-6">Looks like you haven't added any products to your cart yet.</p>
+            <a href="/" class="btn btn-primary">Continue Shopping</a>
+          </div>
+        `;
+      }
+
+      // Initialize
+      loadCart();
+    });
+  </script>
+</body>
+</html>
