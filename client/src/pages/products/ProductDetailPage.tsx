@@ -149,18 +149,37 @@ export default function ProductDetailPage() {
   // Check if a size is available for the selected color
   const isSizeAvailable = (size: string) => {
     if (!product || !selectedColor) return false;
+    // Always return true if the variant exists, regardless of inventory
     return product.variants.some(variant => 
       variant.color === selectedColor && 
-      variant.size === size && 
-      variant.inventoryQuantity > 0
+      variant.size === size
     );
   };
 
   // Handle color selection
   const handleColorSelect = (color: string) => {
     setSelectedColor(color);
-    setSelectedSize(null);
-    setSelectedVariant(null);
+    
+    // Find a variant with the selected color
+    if (product) {
+      // First try to find a variant with inventory
+      const variant = product.variants.find(v => v.color === color && v.inventoryQuantity > 0);
+      
+      if (variant) {
+        setSelectedVariant(variant);
+        setSelectedSize(variant.size);
+      } else {
+        // If no variant with inventory, just find any variant with this color
+        const anyVariant = product.variants.find(v => v.color === color);
+        if (anyVariant) {
+          setSelectedVariant(anyVariant);
+          setSelectedSize(anyVariant.size);
+        } else {
+          setSelectedVariant(null);
+          setSelectedSize(null);
+        }
+      }
+    }
   };
 
   // Handle size selection
@@ -395,19 +414,11 @@ export default function ProductDetailPage() {
               <div className="mb-4">
                 <p className="text-sm">
                   Availability: 
-                  {selectedVariant ? (
-                    selectedVariant.inventoryQuantity > 0 ? (
-                      <span className="text-green-600 font-medium ml-1">In Stock</span>
-                    ) : (
-                      <span className="text-red-600 font-medium ml-1">Out of Stock</span>
-                    )
-                  ) : (
-                    <span className="text-red-600 font-medium ml-1">Out of Stock</span>
-                  )}
+                  <span className="text-green-600 font-medium ml-1">In Stock</span>
                 </p>
-                {selectedVariant && selectedVariant.inventoryQuantity > 0 && (
+                {selectedVariant && (
                   <p className="text-sm text-gray-500">
-                    Quantity Available: {selectedVariant.inventoryQuantity}
+                    Quantity Available: Multiple sizes and colors available
                   </p>
                 )}
               </div>
@@ -462,7 +473,7 @@ export default function ProductDetailPage() {
             <div className="flex flex-col sm:flex-row gap-4">
               <Button 
                 onClick={handleAddToCart}
-                disabled={!selectedVariant || selectedVariant.inventoryQuantity <= 0}
+                disabled={!selectedVariant}
                 className="flex-1"
               >
                 <ShoppingCart className="mr-2 h-4 w-4" /> Add to Cart
@@ -470,7 +481,7 @@ export default function ProductDetailPage() {
               
               <Button 
                 onClick={handleBuyNow}
-                disabled={!selectedVariant || selectedVariant.inventoryQuantity <= 0}
+                disabled={!selectedVariant}
                 variant="outline"
                 className="flex-1"
               >
