@@ -1,13 +1,25 @@
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
-const dotenv = require('dotenv');
-
-// Load environment variables
-dotenv.config();
+const nodemailer = require('nodemailer');
+require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Email transporter setup
+const transporter = nodemailer.createTransport({
+  host: 'smtp.hostinger.com',
+  port: 465,
+  secure: true, // true for 465, false for other ports
+  auth: {
+    user: 'verification@lelekart.com',
+    pass: 'Ayushcha123@'
+  }
+});
+
+// Store OTPs temporarily (in production, use a database)
+const otpStore = new Map();
 
 // Log all requests to help with debugging
 app.use((req, res, next) => {
@@ -88,26 +100,56 @@ app.get('/debug', (req, res) => {
 
 // Authentication endpoints
 // Handle both GET and POST for OTP request to fix 405 error
-app.all('/api/auth/request-otp', (req, res) => {
-  console.log('OTP request received:', {
-    method: req.method,
-    body: req.body,
-    query: req.query
-  });
+app.all('/api/auth/request-otp', async (req, res) => {
+  console.log(`${req.method} request to /api/auth/request-otp`);
+  console.log('Request body:', req.body);
+  console.log('Request query:', req.query);
   
-  // Get email from either body (POST) or query params (GET)
-  const email = req.body?.email || req.query?.email;
+  // Get email from either body (POST) or query (GET)
+  const email = req.method === 'POST' ? req.body.email : req.query.email;
   
   if (!email) {
     return res.status(400).json({ message: 'Email is required' });
   }
   
-  // In a real implementation, you would generate and send an OTP
-  // For this temporary fix, we'll just return a success message
-  return res.status(200).json({
-    message: 'OTP sent successfully',
-    previewUrl: `OTP for ${email} would be sent in production`
-  });
+  try {
+    // Generate a 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Store the OTP with a timestamp (expires in 10 minutes)
+    otpStore.set(email, {
+      otp,
+      expires: Date.now() + 10 * 60 * 1000 // 10 minutes
+    });
+    
+    // Send the OTP via email
+    const mailOptions = {
+      from: '"UniVendor" <verification@lelekart.com>',
+      to: email,
+      subject: 'Your Verification Code',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #4F46E5;">UniVendor Verification</h2>
+          <p>Your verification code is:</p>
+          <div style="background-color: #f4f4f9; padding: 15px; font-size: 24px; font-weight: bold; text-align: center; letter-spacing: 5px; margin: 20px 0;">
+            ${otp}
+          </div>
+          <p>This code will expire in 10 minutes.</p>
+          <p>If you didn't request this code, please ignore this email.</p>
+        </div>
+      `
+    };
+    
+    await transporter.sendMail(mailOptions);
+    
+    return res.status(200).json({
+      message: 'OTP sent successfully',
+      previewUrl: `OTP sent to ${email}`
+    });
+  } catch (error) {
+    console.error('Error sending OTP:', error);
+    return res.status(500).json({ message: 'Failed to send OTP' });
+  }
 });
 
 // OTP verification endpoint
@@ -123,12 +165,29 @@ app.post('/api/auth/verify-otp', (req, res) => {
     return res.status(400).json({ message: 'OTP is required' });
   }
   
-  // For testing purposes, accept any 6-digit OTP
-  // In production, you would validate against a stored OTP
-  if (otp.length !== 6) {
-    console.log('Invalid OTP format:', otp);
+  // Check if OTP exists and is valid
+  const storedOTPData = otpStore.get(email);
+  
+  if (!storedOTPData) {
+    console.log('No OTP found for email:', email);
+    return res.status(400).json({ message: 'Invalid OTP or OTP expired' });
+  }
+  
+  // Check if OTP has expired
+  if (Date.now() > storedOTPData.expires) {
+    console.log('OTP expired for email:', email);
+    otpStore.delete(email); // Clean up expired OTP
+    return res.status(400).json({ message: 'OTP expired' });
+  }
+  
+  // Verify OTP
+  if (otp !== storedOTPData.otp) {
+    console.log('Invalid OTP provided:', otp);
     return res.status(400).json({ message: 'Invalid OTP' });
   }
+  
+  // OTP verified successfully, clean up
+  otpStore.delete(email);
   
   console.log('OTP verified successfully for:', email);
   return res.status(200).json({
@@ -178,4 +237,5 @@ app.get('/api/products/:id/variants', async (req, res) => {
 // Start the server
 app.listen(port, () => {
   console.log(`API server running on port ${port}`);
+  console.log('Email verification enabled with SMTP server: smtp.hostinger.com');
 });
