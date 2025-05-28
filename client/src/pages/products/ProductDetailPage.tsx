@@ -441,25 +441,30 @@ export default function ProductDetailPage() {
     }
     
     // Add to cart logic
-    // Make sure we use the correct image URL for the variant
+    // Make sure we use the correct image URL for the variant - use the same logic as getVariantImageForColor
     let variantImage;
     
     // For Allen Solly products (ID 14), use specific images based on color
     if (product.id === 14) {
-      const allenSollyImages = {
+      // Use the same hardcoded images as in the display
+      const allenSollyImages: Record<string, string> = {
         'Black': 'https://images.unsplash.com/photo-1620012253295-c15cc3e65df4?q=80&w=1965&auto=format&fit=crop&ixlib=rb-4.0.3',
         'Blue': 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?q=80&w=1976&auto=format&fit=crop&ixlib=rb-4.0.3',
         'White': 'https://images.unsplash.com/photo-1598032895397-b9472444bf93?q=80&w=1780&auto=format&fit=crop&ixlib=rb-4.0.3'
       };
       
-      if (selectedColor && allenSollyImages[selectedColor]) {
-        variantImage = allenSollyImages[selectedColor];
+      // Use type assertion to fix TypeScript error
+      if (selectedColor && selectedColor in allenSollyImages) {
+        variantImage = allenSollyImages[selectedColor as keyof typeof allenSollyImages];
+        console.log('Using hardcoded Allen Solly image for cart:', variantImage);
       }
     }
     
     // If not Allen Solly or no specific image found, use variant image or product image
     if (!variantImage) {
-      variantImage = variant.imageUrl || variant.image_url || product.featured_image_url;
+      // Try to use the same image that's displayed in the main product view
+      variantImage = getDisplayImage();
+      console.log('Using display image for cart:', variantImage);
     }
     
     console.log('Adding to cart with image URL:', variantImage);
