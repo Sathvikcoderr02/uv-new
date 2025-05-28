@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import config from "@/config";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -7,11 +8,24 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+/**
+ * Make an API request with the base URL from config
+ * @param method HTTP method (GET, POST, etc.)
+ * @param endpoint API endpoint (e.g., '/api/auth/request-otp')
+ * @param data Optional request body
+ * @returns Promise with the response
+ */
 export async function apiRequest(
   method: string,
-  url: string,
+  endpoint: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  // Remove leading slash if present to avoid double slashes
+  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+  const url = `${config.apiBaseUrl}/${normalizedEndpoint}`;
+  
+  console.log(`[API Request] ${method} ${url}`, data);
+  
   const res = await fetch(url, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
@@ -24,13 +38,23 @@ export async function apiRequest(
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
+
 export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey[0] as string, {
+    const endpoint = queryKey[0] as string;
+    const normalizedEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+    const url = `${config.apiBaseUrl}/${normalizedEndpoint}`;
+    
+    console.log(`[Query] GET ${url}`);
+    
+    const res = await fetch(url, {
       credentials: "include",
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
