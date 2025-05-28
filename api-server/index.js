@@ -112,18 +112,29 @@ app.all('/api/auth/request-otp', (req, res) => {
 
 // OTP verification endpoint
 app.post('/api/auth/verify-otp', (req, res) => {
+  console.log('Verify OTP request received:', req.body);
   const { email, otp } = req.body;
   
-  if (!email || !otp) {
-    return res.status(400).json({ message: 'Email and OTP are required' });
+  if (!email) {
+    return res.status(400).json({ message: 'Email is required' });
   }
   
-  // For this temporary fix, accept any OTP
+  if (!otp) {
+    return res.status(400).json({ message: 'OTP is required' });
+  }
+  
+  // For testing purposes, accept any 6-digit OTP
   // In production, you would validate against a stored OTP
+  if (otp.length !== 6) {
+    console.log('Invalid OTP format:', otp);
+    return res.status(400).json({ message: 'Invalid OTP' });
+  }
+  
+  console.log('OTP verified successfully for:', email);
   return res.status(200).json({
     id: 1,
     email: email,
-    role: 'admin',
+    role: 'user',
     firstName: 'Test',
     lastName: 'User'
   });
