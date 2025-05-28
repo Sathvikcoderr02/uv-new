@@ -331,15 +331,19 @@ export default function ProductDetailPage() {
         {/* Product Image */}
         <div className="bg-white rounded-lg overflow-hidden shadow-md">
           <div className="aspect-square relative">
-            <img 
-              src={selectedColor && product.id === 14 ? 
-                `/images/products/${product.id}_${selectedColor.toLowerCase()}.jpg` : 
-                (selectedVariant?.imageUrl || product.featured_image_url)} 
-              alt={`${product.name}${selectedColor ? ` - ${selectedColor}` : ''}`}
-              className="w-full h-full object-cover" 
+            <img
+              src={
+                selectedVariant?.imageUrl || 
+                (product?.id === 14 && selectedColor 
+                  ? `/images/allen-solly-${selectedColor.toLowerCase()}.jpg`
+                  : '/images/placeholder-product.jpg')
+              }
+              alt={product?.name || 'Product image'}
+              className="w-full h-full object-cover"
               onError={(e) => {
-                console.error('Image failed to load:', e);
-                e.currentTarget.src = 'https://via.placeholder.com/400x400?text=Product+Image';
+                console.warn("Image failed to load, using fallback");
+                e.currentTarget.src = '/images/placeholder-product.jpg';
+                e.currentTarget.alt = 'Placeholder product image';
               }}
             />
             {product.is_featured && (
