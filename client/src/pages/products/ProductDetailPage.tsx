@@ -13,11 +13,16 @@ interface ProductVariant {
   id: number;
   color: string;
   size: string;
-  sellingPrice: string | number;
+  // Support both camelCase and snake_case property names
+  sellingPrice?: string | number;
+  selling_price?: string | number;
   mrp: string | number;
-  inventoryQuantity: number;
-  imageUrl: string | null;
-  isDefault: boolean;
+  inventoryQuantity?: number;
+  inventory_quantity?: number;
+  imageUrl?: string | null;
+  image_url?: string | null;
+  isDefault?: boolean;
+  is_default?: boolean;
 }
 
 interface Product {
@@ -84,23 +89,8 @@ export default function ProductDetailPage() {
             'Accept': 'application/json'
           }
         });
-        let variantsData = variantsResponse.data;
-        console.log('Raw variant data received:', variantsData);
-        
-        // Transform variant data to ensure property names match the interface
-        variantsData = variantsData.map(variant => {
-          // Map image_url to imageUrl if needed
-          if (variant.image_url !== undefined && variant.imageUrl === undefined) {
-            console.log(`Transforming variant ${variant.id} image_url to imageUrl:`, variant.image_url);
-            return {
-              ...variant,
-              imageUrl: variant.image_url
-            };
-          }
-          return variant;
-        });
-        
-        console.log('Transformed variant data:', variantsData);
+        const variantsData = variantsResponse.data;
+        console.log('Variant data received:', variantsData);
         
         // Combine product with its variants
         const fullProduct = {
@@ -173,6 +163,7 @@ export default function ProductDetailPage() {
 
   // Handle color selection
   const handleColorSelect = (color: string) => {
+    console.log(`Selecting color: ${color}`);
     setSelectedColor(color);
     
     // Find a variant with the selected color
@@ -182,8 +173,27 @@ export default function ProductDetailPage() {
       
       if (variant) {
         console.log('Selected variant:', variant);
-        console.log('Variant image URL:', variant.imageUrl);
-        setSelectedVariant(variant);
+        console.log('Variant image_url:', variant.image_url);
+        console.log('Variant imageUrl:', variant.imageUrl);
+        console.log('Variant selling_price:', variant.selling_price);
+        console.log('Variant sellingPrice:', variant.sellingPrice);
+        
+        // Create a new object with both snake_case and camelCase properties
+        const normalizedVariant = {
+          ...variant,
+          // Ensure both property formats are available
+          imageUrl: variant.imageUrl || variant.image_url,
+          image_url: variant.image_url || variant.imageUrl,
+          sellingPrice: variant.sellingPrice || variant.selling_price,
+          selling_price: variant.selling_price || variant.sellingPrice,
+          inventoryQuantity: variant.inventoryQuantity || variant.inventory_quantity,
+          inventory_quantity: variant.inventory_quantity || variant.inventoryQuantity
+        };
+        
+        console.log('Normalized variant:', normalizedVariant);
+        
+        // Force a re-render by setting state with the new object
+        setSelectedVariant(normalizedVariant);
         setSelectedSize(variant.size);
       } else {
         console.warn(`No variant found for color: ${color}`);
