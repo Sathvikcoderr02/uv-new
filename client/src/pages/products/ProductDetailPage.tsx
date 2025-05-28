@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import axios from 'axios';
+import config from '@/config';
 
 interface ProductVariant {
   id: number;
@@ -50,11 +51,11 @@ export default function ProductDetailPage() {
       try {
         setLoading(true);
         // Fetch product details
-        const productResponse = await axios.get(`/api/products/${productId}`);
+        const productResponse = await axios.get(`${config.apiBaseUrl}/api/products/${productId}`);
         const productData = productResponse.data;
         
         // Fetch product variants
-        const variantsResponse = await axios.get(`/api/products/${productId}/variants`);
+        const variantsResponse = await axios.get(`${config.apiBaseUrl}/api/products/${productId}/variants`);
         const variantsData = variantsResponse.data;
         
         // Combine product with its variants
