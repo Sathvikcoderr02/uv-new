@@ -170,11 +170,35 @@ export default function ProductDetailPage() {
     }
   }, [productId]);
 
-  // Get unique colors from variants
+  // Get all unique colors from variants
   const getUniqueColors = () => {
     if (!product) return [];
     const colors = product.variants.map(variant => variant.color);
     return [...new Set(colors)];
+  };
+  
+  // Get variant image for a specific color
+  const getVariantImageForColor = (color: string) => {
+    if (!product) return null;
+    
+    // Find a variant with this color
+    const variant = product.variants.find(v => v.color === color);
+    
+    // For Allen Solly products, use hardcoded images
+    if (product.id === 14) {
+      const allenSollyImages: Record<string, string> = {
+        'Black': 'https://images.unsplash.com/photo-1620012253295-c15cc3e65df4?q=80&w=1965&auto=format&fit=crop&ixlib=rb-4.0.3',
+        'Blue': 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?q=80&w=1976&auto=format&fit=crop&ixlib=rb-4.0.3',
+        'White': 'https://images.unsplash.com/photo-1598032895397-b9472444bf93?q=80&w=1780&auto=format&fit=crop&ixlib=rb-4.0.3'
+      };
+      
+      if (color in allenSollyImages) {
+        return allenSollyImages[color as keyof typeof allenSollyImages];
+      }
+    }
+    
+    // Return variant image or null
+    return variant?.imageUrl || variant?.image_url || null;
   };
 
   // Get unique sizes for the selected color
@@ -500,29 +524,13 @@ export default function ProductDetailPage() {
           {/* Variant Selection */}
           {product.variants.length > 1 && (
             <div className="mb-6">
-              {/* Color Selection */}
-              <div className="mb-4">
+              {/* Variant Image Selection */}
+              <div className="mb-8">
                 <h3 className="text-sm font-medium mb-2">Color</h3>
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-4">
                   {getUniqueColors().map(color => {
                     const isSelected = color === selectedColor;
-                    const getColorHex = (colorName: string) => {
-                      const colorMap: Record<string, string> = {
-                        'black': '#000000',
-                        'blue': '#0000FF',
-                        'white': '#FFFFFF',
-                        'red': '#FF0000',
-                        'green': '#008000',
-                        'yellow': '#FFFF00',
-                        'purple': '#800080',
-                        'pink': '#FFC0CB',
-                        'orange': '#FFA500',
-                        'brown': '#A52A2A',
-                        'gray': '#808080',
-                        'grey': '#808080'
-                      };
-                      return colorMap[colorName.toLowerCase()] || '#CCCCCC';
-                    };
+                    const variantImage = getVariantImageForColor(color) || product.featured_image_url;
                     
                     return (
                       <div 
@@ -533,10 +541,18 @@ export default function ProductDetailPage() {
                         onMouseLeave={handleColorMouseLeave}
                       >
                         <div 
-                          className={`w-10 h-10 rounded-full border-2 ${isSelected ? 'border-primary' : 'border-gray-300'}`}
-                          style={{ backgroundColor: getColorHex(color) }}
-                        />
-                        <span className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs capitalize">
+                          className={`w-16 h-16 rounded-md overflow-hidden border-2 ${isSelected ? 'border-primary' : 'border-gray-300'}`}
+                        >
+                          <img 
+                            src={variantImage} 
+                            alt={`${product.name} - ${color}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.src = '/images/placeholder-product.jpg';
+                            }}
+                          />
+                        </div>
+                        <span className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs capitalize text-center">
                           {color}
                         </span>
                       </div>
@@ -563,7 +579,7 @@ export default function ProductDetailPage() {
                       />
                       <Label 
                         htmlFor={`size-${size}`} 
-                        className={`uppercase ${!isSizeAvailable(size) ? 'line-through text-gray-400' : ''}`}
+                        className={`uppercase ${!isSizeAvailable(size) ? 'text-gray-400' : ''}`}
                       >
                         {size}
                       </Label>
