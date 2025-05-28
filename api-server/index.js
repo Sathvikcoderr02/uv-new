@@ -225,13 +225,25 @@ app.all('/api/auth/request-otp', async (req, res) => {
     
     await transporter.sendMail(mailOptions);
     
+    // Store OTP in database with 10-minute expiration
+    await otpDb.storeOtp(email, otp, 10);
+    
+    // In development, log the OTP to console
+    console.log(`OTP for ${email}: ${otp}`);
+    
     return res.status(200).json({
+      success: true,
       message: 'OTP sent successfully',
-      previewUrl: `OTP sent to ${email}`
+      // Only include previewUrl in development
+      ...(process.env.NODE_ENV !== 'production' && { previewUrl: `otp:${otp}` })
     });
   } catch (error) {
-    console.error('Error sending OTP:', error);
-    return res.status(500).json({ message: 'Failed to send OTP' });
+    console.error('Error in OTP request:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to send OTP',
+      error: error.message
+    });
   }
 });
 
@@ -239,7 +251,7 @@ app.all('/api/auth/request-otp', async (req, res) => {
 app.post('/api/auth/verify-otp', async (req, res) => {
   console.log('Verify OTP request received:', req.body);
   const { email, otp } = req.body;
-  
+    
   if (!email) {
     console.log('Email is missing in request');
     return res.status(400).json({ message: 'Email is required' });
