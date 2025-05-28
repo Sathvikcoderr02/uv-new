@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+ import React, { useState, useEffect } from 'react';
 import { useRoute, Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { ShoppingCart, ShoppingBag, ArrowRight } from 'lucide-react';
@@ -52,6 +52,7 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [addedToCart, setAddedToCart] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [hoveredColor, setHoveredColor] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -207,42 +208,84 @@ export default function ProductDetailPage() {
   const handleColorSelect = (color: string) => {
     console.log(`Selecting color: ${color}`);
     setSelectedColor(color);
+    setSelectedSize(null); // Reset size when color changes
     
     // Find a variant with the selected color
-    if (product) {
-      // First try to find a variant with inventory
-      const variant = product.variants.find(v => v.color === color);
-      
-      if (variant) {
-        console.log('Selected variant:', variant);
-        console.log('Variant image_url:', variant.image_url);
-        console.log('Variant imageUrl:', variant.imageUrl);
-        console.log('Variant selling_price:', variant.selling_price);
-        console.log('Variant sellingPrice:', variant.sellingPrice);
-        
-        // Create a new object with both snake_case and camelCase properties
-        const normalizedVariant = {
-          ...variant,
-          // Ensure both property formats are available
-          imageUrl: variant.imageUrl || variant.image_url,
-          image_url: variant.image_url || variant.imageUrl,
-          sellingPrice: variant.sellingPrice || variant.selling_price,
-          selling_price: variant.selling_price || variant.sellingPrice,
-          inventoryQuantity: variant.inventoryQuantity || variant.inventory_quantity,
-          inventory_quantity: variant.inventory_quantity || variant.inventoryQuantity
+    const variant = product?.variants.find(v => v.color === color);
+    if (variant) {
+      console.log('Selected variant:', variant);
+    } else {
+      console.log('No variant found for color:', color);
+    }
+  };
+  
+  // Handle color hover
+  const handleColorMouseEnter = (color: string) => {
+    setHoveredColor(color);
+  };
+  
+  // Handle mouse leave
+  const handleColorMouseLeave = () => {
+    setHoveredColor(null);
+  };
+  
+  // Get the image to display based on selected or hovered color
+  const getDisplayImage = () => {
+    if (!product) return '/images/placeholder-product.jpg';
+    
+    // If a color is being hovered, show that color's image
+    if (hoveredColor) {
+      // For Allen Solly products, use hardcoded images
+      if (product.id === 14) {
+        const allenSollyImages: Record<string, string> = {
+          'Black': 'https://images.unsplash.com/photo-1620012253295-c15cc3e65df4?q=80&w=1965&auto=format&fit=crop&ixlib=rb-4.0.3',
+          'Blue': 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?q=80&w=1976&auto=format&fit=crop&ixlib=rb-4.0.3',
+          'White': 'https://images.unsplash.com/photo-1598032895397-b9472444bf93?q=80&w=1780&auto=format&fit=crop&ixlib=rb-4.0.3'
         };
         
-        console.log('Normalized variant:', normalizedVariant);
-        
-        // Force a re-render by setting state with the new object
-        setSelectedVariant(normalizedVariant);
-        setSelectedSize(variant.size);
-      } else {
-        console.warn(`No variant found for color: ${color}`);
-        setSelectedVariant(null);
-        setSelectedSize(null);
+        // Use type assertion to fix TypeScript error
+        if (hoveredColor in allenSollyImages) {
+          return allenSollyImages[hoveredColor as keyof typeof allenSollyImages];
+        }
+      }
+      
+      // Try to find a variant with the hovered color
+      const hoveredVariant = product.variants.find(v => v.color === hoveredColor);
+      if (hoveredVariant && (hoveredVariant.imageUrl || hoveredVariant.image_url)) {
+        return hoveredVariant.imageUrl || hoveredVariant.image_url;
       }
     }
+    
+    // If no hover or no hover image found, use selected variant image
+    if (selectedVariant && (selectedVariant.imageUrl || selectedVariant.image_url)) {
+      return selectedVariant.imageUrl || selectedVariant.image_url;
+    }
+    
+    // If selected color but no selected variant yet
+    if (selectedColor) {
+      // For Allen Solly products, use hardcoded images
+      if (product.id === 14) {
+        const allenSollyImages: Record<string, string> = {
+          'Black': 'https://images.unsplash.com/photo-1620012253295-c15cc3e65df4?q=80&w=1965&auto=format&fit=crop&ixlib=rb-4.0.3',
+          'Blue': 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?q=80&w=1976&auto=format&fit=crop&ixlib=rb-4.0.3',
+          'White': 'https://images.unsplash.com/photo-1598032895397-b9472444bf93?q=80&w=1780&auto=format&fit=crop&ixlib=rb-4.0.3'
+        };
+        
+        // Use type assertion to fix TypeScript error
+        if (selectedColor in allenSollyImages) {
+          return allenSollyImages[selectedColor as keyof typeof allenSollyImages];
+        }
+      }
+      
+      // Try to find any variant with the selected color
+      const colorVariant = product.variants.find(v => v.color === selectedColor);
+      if (colorVariant && (colorVariant.imageUrl || colorVariant.image_url)) {
+        return colorVariant.imageUrl || colorVariant.image_url;
+      }
+    }
+    
+    // Default to product featured image
+    return product.featured_image_url || '/images/placeholder-product.jpg';
   };
 
   // Handle size selection
@@ -421,7 +464,7 @@ export default function ProductDetailPage() {
         <div className="bg-white rounded-lg overflow-hidden shadow-md">
           <div className="aspect-square relative">
             <img 
-              src={selectedVariant?.imageUrl || product.featured_image_url || '/images/placeholder-product.jpg'} 
+              src={getDisplayImage()} 
               alt={`${product.name}${selectedColor ? ` - ${selectedColor}` : ''}`}
               className="w-full h-full object-cover" 
               onError={(e) => {
@@ -462,7 +505,12 @@ export default function ProductDetailPage() {
                 <h3 className="text-sm font-medium mb-2">Color</h3>
                 <RadioGroup value={selectedColor || ""} onValueChange={handleColorSelect} className="flex gap-2">
                   {getUniqueColors().map(color => (
-                    <div key={color} className="flex items-center space-x-2">
+                    <div 
+                      key={color} 
+                      className="flex items-center space-x-2"
+                      onMouseEnter={() => handleColorMouseEnter(color)}
+                      onMouseLeave={handleColorMouseLeave}
+                    >
                       <RadioGroupItem value={color} id={`color-${color}`} />
                       <Label htmlFor={`color-${color}`} className="capitalize">{color}</Label>
                     </div>
