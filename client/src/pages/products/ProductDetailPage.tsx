@@ -580,11 +580,7 @@ export default function ProductDetailPage() {
             </div>
           </div>
           
-          <div className="mt-8">
-            <Link href="/cart.html" className="text-primary hover:underline flex items-center">
-              Go to Cart <ArrowRight className="ml-1 h-4 w-4" />
-            </Link>
-          </div>
+          {/* Go to Cart link removed as requested */}
         </div>
       </div>
       
