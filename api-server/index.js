@@ -19,15 +19,35 @@ const pool = new Pool({
 
 // Middleware
 app.use(cors({
-  origin: '*', // Allow all origins for now
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: ['https://uv-new-motk.vercel.app', 'http://localhost:5000', 'http://localhost:3000'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
+
+// Add pre-flight OPTIONS handling
+app.options('*', cors());
+
 app.use(express.json());
 
-// Test route
+// Test routes
 app.get('/', (req, res) => {
   res.json({ message: 'UniVendor API is running' });
+});
+
+// Debug route to check headers and connection
+app.get('/debug', (req, res) => {
+  res.json({
+    message: 'Debug info',
+    headers: req.headers,
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Health check route
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // Get product by ID

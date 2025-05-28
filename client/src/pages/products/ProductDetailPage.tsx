@@ -50,22 +50,40 @@ export default function ProductDetailPage() {
     const fetchProduct = async () => {
       try {
         setLoading(true);
-        if (config.enableDebugLogs) {
-          console.log(`Fetching product from: ${config.apiBaseUrl}/api/products/${productId}`);
+        console.log(`Fetching product from: ${config.apiBaseUrl}/api/products/${productId}`);
+        console.log('Current environment:', process.env.NODE_ENV);
+        console.log('API Base URL:', config.apiBaseUrl);
+        
+        // First check if API is accessible
+        try {
+          const healthCheck = await axios.get(`${config.apiBaseUrl}/health`);
+          console.log('API health check:', healthCheck.data);
+        } catch (healthErr) {
+          console.error('API health check failed:', healthErr);
+          // Continue anyway to see specific product errors
         }
         
-        // Fetch product details
-        const productResponse = await axios.get(`${config.apiBaseUrl}/api/products/${productId}`);
+        // Fetch product details with timeout and headers
+        const productResponse = await axios.get(`${config.apiBaseUrl}/api/products/${productId}`, {
+          timeout: 10000,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        });
         const productData = productResponse.data;
-        
-        if (config.enableDebugLogs) {
-          console.log('Product data received:', productData);
-          console.log(`Fetching variants from: ${config.apiBaseUrl}/api/products/${productId}/variants`);
-        }
+        console.log('Product data received:', productData);
         
         // Fetch product variants
-        const variantsResponse = await axios.get(`${config.apiBaseUrl}/api/products/${productId}/variants`);
+        const variantsResponse = await axios.get(`${config.apiBaseUrl}/api/products/${productId}/variants`, {
+          timeout: 10000,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        });
         const variantsData = variantsResponse.data;
+        console.log('Variant data received:', variantsData);
         
         if (config.enableDebugLogs) {
           console.log('Variant data received:', variantsData);
