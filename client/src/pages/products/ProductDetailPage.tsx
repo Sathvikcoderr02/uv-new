@@ -167,7 +167,7 @@ export default function ProductDetailPage() {
       
       if (variant) {
         console.log('Selected variant:', variant);
-        console.log('Variant image URL:', variant.imageUrl);
+        console.log('Variant image URL:', variant.image_url);
         setSelectedVariant(variant);
         setSelectedSize(variant.size);
       } else {
@@ -331,7 +331,7 @@ export default function ProductDetailPage() {
         <div className="bg-white rounded-lg overflow-hidden shadow-md">
           <div className="aspect-square relative">
             <img 
-              src={selectedVariant?.imageUrl || product.featured_image_url || '/images/placeholder-product.jpg'} 
+              src={selectedVariant?.image_url || product.featured_image_url || '/images/placeholder-product.jpg'} 
               alt={`${product.name}${selectedColor ? ` - ${selectedColor}` : ''}`}
               className="w-full h-full object-cover" 
               onError={(e) => {
