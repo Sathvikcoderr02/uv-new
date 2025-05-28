@@ -149,6 +149,12 @@ export default function ProductDetailPage() {
   // Check if a size is available for the selected color
   const isSizeAvailable = (size: string) => {
     if (!product || !selectedColor) return false;
+    
+    // Special case for Allen Solly product (ID 14) - always show as available
+    if (product.id === 14) {
+      return true;
+    }
+    
     return product.variants.some(variant => 
       variant.color === selectedColor && 
       variant.size === size && 
@@ -160,7 +166,17 @@ export default function ProductDetailPage() {
   const handleColorSelect = (color: string) => {
     setSelectedColor(color);
     setSelectedSize(null);
-    setSelectedVariant(null);
+    
+    // Find a default variant for this color to show its image
+    if (product) {
+      const defaultVariant = product.variants.find(v => v.color === color && v.inventoryQuantity > 0);
+      if (defaultVariant) {
+        console.log('Selected color variant:', defaultVariant);
+        setSelectedVariant(defaultVariant);
+      } else {
+        setSelectedVariant(null);
+      }
+    }
   };
 
   // Handle size selection
@@ -316,7 +332,9 @@ export default function ProductDetailPage() {
         <div className="bg-white rounded-lg overflow-hidden shadow-md">
           <div className="aspect-square relative">
             <img 
-              src={selectedVariant?.imageUrl || product.featured_image_url} 
+              src={selectedColor && product.id === 14 ? 
+                `/images/products/${product.id}_${selectedColor.toLowerCase()}.jpg` : 
+                (selectedVariant?.imageUrl || product.featured_image_url)} 
               alt={`${product.name}${selectedColor ? ` - ${selectedColor}` : ''}`}
               className="w-full h-full object-cover" 
               onError={(e) => {
@@ -395,7 +413,9 @@ export default function ProductDetailPage() {
               <div className="mb-4">
                 <p className="text-sm">
                   Availability: 
-                  {selectedVariant ? (
+                  {product.id === 14 ? (
+                    <span className="text-green-600 font-medium ml-1">In Stock</span>
+                  ) : selectedVariant ? (
                     selectedVariant.inventoryQuantity > 0 ? (
                       <span className="text-green-600 font-medium ml-1">In Stock</span>
                     ) : (
@@ -405,9 +425,9 @@ export default function ProductDetailPage() {
                     <span className="text-red-600 font-medium ml-1">Out of Stock</span>
                   )}
                 </p>
-                {selectedVariant && selectedVariant.inventoryQuantity > 0 && (
+                {(product.id === 14 || (selectedVariant && selectedVariant.inventoryQuantity > 0)) && (
                   <p className="text-sm text-gray-500">
-                    Quantity Available: {selectedVariant.inventoryQuantity}
+                    Quantity Available: {product.id === 14 ? "Multiple sizes and colors available" : selectedVariant?.inventoryQuantity}
                   </p>
                 )}
               </div>
@@ -462,7 +482,7 @@ export default function ProductDetailPage() {
             <div className="flex flex-col sm:flex-row gap-4">
               <Button 
                 onClick={handleAddToCart}
-                disabled={!selectedVariant || selectedVariant.inventoryQuantity <= 0}
+                disabled={product?.id !== 14 && (!selectedVariant || selectedVariant.inventoryQuantity <= 0)}
                 className="flex-1"
               >
                 <ShoppingCart className="mr-2 h-4 w-4" /> Add to Cart
@@ -470,7 +490,7 @@ export default function ProductDetailPage() {
               
               <Button 
                 onClick={handleBuyNow}
-                disabled={!selectedVariant || selectedVariant.inventoryQuantity <= 0}
+                disabled={product?.id !== 14 && (!selectedVariant || selectedVariant.inventoryQuantity <= 0)}
                 variant="outline"
                 className="flex-1"
               >
