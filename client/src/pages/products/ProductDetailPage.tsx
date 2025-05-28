@@ -53,6 +53,8 @@ export default function ProductDetailPage() {
   const [addedToCart, setAddedToCart] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -336,7 +338,25 @@ export default function ProductDetailPage() {
     );
     
     setSelectedSize(size);
-    setSelectedVariant(variant || null);
+    
+    if (variant) {
+      // Create a normalized variant to ensure all properties are available
+      const normalizedVariant = {
+        ...variant,
+        // Ensure both property formats are available
+        imageUrl: variant.imageUrl || variant.image_url,
+        image_url: variant.image_url || variant.imageUrl,
+        sellingPrice: variant.sellingPrice || variant.selling_price,
+        selling_price: variant.selling_price || variant.sellingPrice
+      };
+      
+      // Update the selected variant to display the price
+      setSelectedVariant(normalizedVariant);
+      console.log('Selected variant with size:', normalizedVariant);
+    } else {
+      setSelectedVariant(null);
+      console.log('No variant found for size:', size);
+    }
   };
 
   if (loading) {
@@ -498,13 +518,27 @@ export default function ProductDetailPage() {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Product Image */}
+        {/* Product Image with Zoom */}
         <div className="bg-white rounded-lg overflow-hidden shadow-md">
-          <div className="aspect-square relative">
+          <div 
+            className="aspect-square relative cursor-zoom-in overflow-hidden"
+            onMouseEnter={() => setIsZoomed(true)}
+            onMouseLeave={() => setIsZoomed(false)}
+            onMouseMove={(e) => {
+              // Get the position of the cursor relative to the image container
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = ((e.clientX - rect.left) / rect.width) * 100;
+              const y = ((e.clientY - rect.top) / rect.height) * 100;
+              setMousePosition({ x, y });
+            }}
+          >
             <img 
               src={getDisplayImage()} 
               alt={`${product.name}${selectedColor ? ` - ${selectedColor}` : ''}`}
-              className="w-full h-full object-cover" 
+              className={`w-full h-full object-cover transition-transform duration-200 ${isZoomed ? 'scale-150' : 'scale-100'}`}
+              style={isZoomed ? {
+                transformOrigin: `${mousePosition.x}% ${mousePosition.y}%`
+              } : undefined}
               onError={(e) => {
                 console.warn('Image failed to load, using fallback');
                 e.currentTarget.src = '/images/placeholder-product.jpg';
@@ -514,6 +548,11 @@ export default function ProductDetailPage() {
             {product.is_featured && (
               <div className="absolute top-4 left-4">
                 <span className="bg-yellow-400 text-yellow-900 text-sm font-bold px-3 py-1 rounded-full">FEATURED</span>
+              </div>
+            )}
+            {isZoomed && (
+              <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                Hover to zoom
               </div>
             )}
           </div>
