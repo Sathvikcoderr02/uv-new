@@ -1,4 +1,4 @@
- import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRoute, Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { ShoppingCart, ShoppingBag, ArrowRight } from 'lucide-react';
@@ -503,19 +503,46 @@ export default function ProductDetailPage() {
               {/* Color Selection */}
               <div className="mb-4">
                 <h3 className="text-sm font-medium mb-2">Color</h3>
-                <RadioGroup value={selectedColor || ""} onValueChange={handleColorSelect} className="flex gap-2">
-                  {getUniqueColors().map(color => (
-                    <div 
-                      key={color} 
-                      className="flex items-center space-x-2"
-                      onMouseEnter={() => handleColorMouseEnter(color)}
-                      onMouseLeave={handleColorMouseLeave}
-                    >
-                      <RadioGroupItem value={color} id={`color-${color}`} />
-                      <Label htmlFor={`color-${color}`} className="capitalize">{color}</Label>
-                    </div>
-                  ))}
-                </RadioGroup>
+                <div className="flex flex-wrap gap-3">
+                  {getUniqueColors().map(color => {
+                    const isSelected = color === selectedColor;
+                    const getColorHex = (colorName: string) => {
+                      const colorMap: Record<string, string> = {
+                        'black': '#000000',
+                        'blue': '#0000FF',
+                        'white': '#FFFFFF',
+                        'red': '#FF0000',
+                        'green': '#008000',
+                        'yellow': '#FFFF00',
+                        'purple': '#800080',
+                        'pink': '#FFC0CB',
+                        'orange': '#FFA500',
+                        'brown': '#A52A2A',
+                        'gray': '#808080',
+                        'grey': '#808080'
+                      };
+                      return colorMap[colorName.toLowerCase()] || '#CCCCCC';
+                    };
+                    
+                    return (
+                      <div 
+                        key={color}
+                        className={`relative cursor-pointer transition-all duration-200 ${isSelected ? 'transform scale-110' : ''}`}
+                        onClick={() => handleColorSelect(color)}
+                        onMouseEnter={() => handleColorMouseEnter(color)}
+                        onMouseLeave={handleColorMouseLeave}
+                      >
+                        <div 
+                          className={`w-10 h-10 rounded-full border-2 ${isSelected ? 'border-primary' : 'border-gray-300'}`}
+                          style={{ backgroundColor: getColorHex(color) }}
+                        />
+                        <span className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs capitalize">
+                          {color}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
               
               {/* Size Selection */}
