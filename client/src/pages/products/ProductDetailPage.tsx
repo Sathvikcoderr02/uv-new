@@ -238,8 +238,22 @@ export default function ProductDetailPage() {
     const variant = product?.variants.find(v => v.color === color);
     if (variant) {
       console.log('Selected variant:', variant);
+      
+      // Create a normalized variant to ensure all properties are available
+      const normalizedVariant = {
+        ...variant,
+        // Ensure both property formats are available
+        imageUrl: variant.imageUrl || variant.image_url,
+        image_url: variant.image_url || variant.imageUrl,
+        sellingPrice: variant.sellingPrice || variant.selling_price,
+        selling_price: variant.selling_price || variant.sellingPrice
+      };
+      
+      // Update the selected variant to display the price
+      setSelectedVariant(normalizedVariant);
     } else {
       console.log('No variant found for color:', color);
+      setSelectedVariant(null);
     }
   };
   
@@ -525,7 +539,7 @@ export default function ProductDetailPage() {
           {product.variants.length > 1 && (
             <div className="mb-6">
               {/* Variant Image Selection */}
-              <div className="mb-8">
+              <div className="mb-12">
                 <h3 className="text-sm font-medium mb-2">Color</h3>
                 <div className="flex flex-wrap gap-4">
                   {getUniqueColors().map(color => {
@@ -562,7 +576,7 @@ export default function ProductDetailPage() {
               </div>
               
               {/* Size Selection */}
-              <div className="mb-4">
+              <div className="mt-8 mb-4">
                 <h3 className="text-sm font-medium mb-2">Size</h3>
                 <RadioGroup 
                   value={selectedSize || ""} 
