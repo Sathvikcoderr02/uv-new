@@ -24,10 +24,12 @@ interface Product {
   id: number;
   name: string;
   description: string;
-  sellingPrice: string | number;
+  selling_price: string | number;
   mrp: string | number;
-  featuredImageUrl: string;
-  isFeatured: boolean;
+  featured_image_url: string;
+  is_featured: boolean;
+  inventory_quantity: number;
+  status: string;
   variants: ProductVariant[];
 }
 
@@ -85,10 +87,6 @@ export default function ProductDetailPage() {
         const variantsData = variantsResponse.data;
         console.log('Variant data received:', variantsData);
         
-        if (config.enableDebugLogs) {
-          console.log('Variant data received:', variantsData);
-        }
-        
         // Combine product with its variants
         const fullProduct = {
           ...productData,
@@ -125,28 +123,78 @@ export default function ProductDetailPage() {
     }
   }, [productId]);
 
-  // If product data is still loading
+  // Get unique colors from variants
+  const getUniqueColors = () => {
+    if (!product) return [];
+    const colors = product.variants.map(variant => variant.color);
+    return [...new Set(colors)];
+  };
+
+  // Get unique sizes for the selected color
+  const getUniqueSizes = () => {
+    if (!product || !selectedColor) return [];
+    const sizes = product.variants
+      .filter(variant => variant.color === selectedColor)
+      .map(variant => variant.size);
+    return [...new Set(sizes)];
+  };
+
+  // Get all possible sizes across all variants
+  const getAllSizes = () => {
+    if (!product) return [];
+    const sizes = product.variants.map(variant => variant.size);
+    return [...new Set(sizes)];
+  };
+
+  // Check if a size is available for the selected color
+  const isSizeAvailable = (size: string) => {
+    if (!product || !selectedColor) return false;
+    return product.variants.some(variant => 
+      variant.color === selectedColor && 
+      variant.size === size && 
+      variant.inventoryQuantity > 0
+    );
+  };
+
+  // Handle color selection
+  const handleColorSelect = (color: string) => {
+    setSelectedColor(color);
+    setSelectedSize(null);
+    setSelectedVariant(null);
+  };
+
+  // Handle size selection
+  const handleSizeSelect = (size: string) => {
+    if (!product || !selectedColor) return;
+    
+    const variant = product.variants.find(v => 
+      v.color === selectedColor && 
+      v.size === size
+    );
+    
+    setSelectedSize(size);
+    setSelectedVariant(variant || null);
+  };
+
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8 flex justify-center items-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading product details...</p>
+      <div className="container mx-auto px-4 py-8 flex justify-center">
+        <div className="animate-pulse">
+          <div className="h-8 w-32 bg-gray-200 rounded mb-4"></div>
+          <div className="h-64 w-full max-w-md bg-gray-200 rounded mb-4"></div>
+          <div className="h-4 w-3/4 bg-gray-200 rounded mb-2"></div>
+          <div className="h-4 w-1/2 bg-gray-200 rounded mb-4"></div>
         </div>
       </div>
     );
   }
 
-  // If there was an error loading the product
   if (error || !product) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-6">
-          <Link href="/" className="text-primary hover:underline">&larr; Back to Home</Link>
-        </div>
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
           <h2 className="text-xl font-semibold text-red-700 mb-2">
-            {error || 'Product not found'}
+            Failed to load product details
           </h2>
           <p className="text-gray-700 mb-4">
             We couldn't find the product you're looking for. It may have been removed or the link is incorrect.
@@ -199,53 +247,53 @@ export default function ProductDetailPage() {
       return;
     }
     
-    if (!selectedVariant) {
-      setValidationError("Please select a valid color and size combination");
+    // Get the selected variant
+    const variant = selectedVariant;
+    if (!variant) {
+      setValidationError("Selected variant not available");
       return;
     }
     
-    // Get current cart from localStorage
-    const currentCart = JSON.parse(localStorage.getItem('cart') || '[]');
+    // Add to cart logic
+    const cartItem = {
+      id: product.id,
+      variantId: variant.id,
+      name: product.name,
+      color: selectedColor,
+      size: selectedSize,
+      price: variant.sellingPrice,
+      image: variant.imageUrl || product.featured_image_url,
+      quantity: quantity
+    };
     
-    // Check if this variant is already in the cart
-    const existingItemIndex = currentCart.findIndex(
-      (item: any) => item.variantId === selectedVariant.id
+    // Get existing cart from localStorage
+    const existingCart = localStorage.getItem('cart');
+    const cart = existingCart ? JSON.parse(existingCart) : [];
+    
+    // Check if item already exists in cart
+    const existingItemIndex = cart.findIndex(item => 
+      item.id === cartItem.id && 
+      item.variantId === cartItem.variantId
     );
     
     if (existingItemIndex >= 0) {
-      // Update quantity if item already exists
-      currentCart[existingItemIndex].quantity += quantity;
+      // Update quantity if item exists
+      cart[existingItemIndex].quantity += quantity;
     } else {
-      // Add new item to cart
-      currentCart.push({
-        productId: product.id,
-        variantId: selectedVariant.id,
-        name: product.name,
-        price: selectedVariant.sellingPrice,
-        color: selectedVariant.color,
-        size: selectedVariant.size,
-        imageUrl: selectedVariant.imageUrl || product.featuredImageUrl,
-        quantity: quantity
-      });
+      // Add new item if it doesn't exist
+      cart.push(cartItem);
     }
     
     // Save updated cart to localStorage
-    localStorage.setItem('cart', JSON.stringify(currentCart));
+    localStorage.setItem('cart', JSON.stringify(cart));
     
-    // Dispatch custom event to update cart counter
+    // Dispatch custom event to update cart icon
     window.dispatchEvent(new CustomEvent('cartUpdated'));
     
-    // Show success message and set added to cart state
+    // Show success message
     setAddedToCart(true);
     
-    // Show toast notification
-    toast({
-      title: "Added to cart",
-      description: `${quantity} × ${product.name} (${selectedVariant.color}, ${selectedVariant.size}) added to your cart.`,
-      duration: 3000
-    });
-    
-    // Auto-hide the success message after 5 seconds
+    // Reset success message after a few seconds
     setTimeout(() => {
       setAddedToCart(false);
     }, 5000);
@@ -268,11 +316,15 @@ export default function ProductDetailPage() {
         <div className="bg-white rounded-lg overflow-hidden shadow-md">
           <div className="aspect-square relative">
             <img 
-              src={selectedVariant?.imageUrl || product.featuredImageUrl} 
+              src={selectedVariant?.imageUrl || product.featured_image_url} 
               alt={`${product.name}${selectedColor ? ` - ${selectedColor}` : ''}`}
               className="w-full h-full object-cover" 
+              onError={(e) => {
+                console.error('Image failed to load:', e);
+                e.currentTarget.src = 'https://via.placeholder.com/400x400?text=Product+Image';
+              }}
             />
-            {product.isFeatured && (
+            {product.is_featured && (
               <div className="absolute top-4 left-4">
                 <span className="bg-yellow-400 text-yellow-900 text-sm font-bold px-3 py-1 rounded-full">FEATURED</span>
               </div>
@@ -292,202 +344,155 @@ export default function ProductDetailPage() {
                 )}
               </>
             ) : (
-              <span className="text-2xl font-bold text-primary">${product.sellingPrice}</span>
+              <span className="text-2xl font-bold text-primary">${product.selling_price}</span>
             )}
           </div>
           
           {/* Variant Selection */}
           {product.variants.length > 1 && (
             <div className="mb-6">
-              <h3 className="text-sm font-medium mb-3">Color</h3>
-              <RadioGroup 
-                value={selectedColor || ''} 
-                onValueChange={(value) => {
-                  setSelectedColor(value);
-                  // Find a variant with this color and the currently selected size (if any)
-                  const newVariant = product.variants.find(v => 
-                    v.color === value && (selectedSize ? v.size === selectedSize : true)
-                  );
-                  if (newVariant) {
-                    setSelectedVariant(newVariant);
-                    setSelectedSize(newVariant.size);
-                  } else if (selectedSize) {
-                    // If no variant with this color and the current size exists, just set the first variant with this color
-                    const firstVariantWithColor = product.variants.find(v => v.color === value);
-                    if (firstVariantWithColor) {
-                      setSelectedVariant(firstVariantWithColor);
-                      setSelectedSize(firstVariantWithColor.size);
-                    }
-                  }
-                  // Clear validation error when user selects a color
-                  setValidationError(null);
-                }}
-                className="flex gap-2 mb-4"
-              >
-                {Array.from(new Set(product.variants.map(v => v.color))).map(color => (
-                  <div key={color} className="flex items-center space-x-2">
-                    <RadioGroupItem value={color} id={`color-${color}`} />
-                    <Label htmlFor={`color-${color}`} className="cursor-pointer">{color}</Label>
-                  </div>
-                ))}
-              </RadioGroup>
+              {/* Color Selection */}
+              <div className="mb-4">
+                <h3 className="text-sm font-medium mb-2">Color</h3>
+                <RadioGroup value={selectedColor || ""} onValueChange={handleColorSelect} className="flex gap-2">
+                  {getUniqueColors().map(color => (
+                    <div key={color} className="flex items-center space-x-2">
+                      <RadioGroupItem value={color} id={`color-${color}`} />
+                      <Label htmlFor={`color-${color}`} className="capitalize">{color}</Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </div>
               
-              {/* Size selection */}
-              <div className="mt-4">
-                <h3 className="text-sm font-medium mb-3">Size</h3>
+              {/* Size Selection */}
+              <div className="mb-4">
+                <h3 className="text-sm font-medium mb-2">Size</h3>
                 <RadioGroup 
-                  value={selectedSize || ''} 
-                  onValueChange={(value) => {
-                    setSelectedSize(value);
-                    // Find a variant with the selected color and this size
-                    if (selectedColor) {
-                      const newVariant = product.variants.find(v => 
-                        v.color === selectedColor && v.size === value
-                      );
-                      if (newVariant) {
-                        setSelectedVariant(newVariant);
-                      }
-                    }
-                    // Clear validation error when user selects a size
-                    setValidationError(null);
-                  }}
-                  className="flex gap-2"
+                  value={selectedSize || ""} 
+                  onValueChange={handleSizeSelect} 
+                  className="flex flex-wrap gap-2"
+                  disabled={!selectedColor}
                 >
-                    {/* Show all possible sizes - S, M, L, XL, XXL with strikethrough for unavailable */}
-                    {['S', 'M', 'L', 'XL', 'XXL'].map(size => {
-                      // Check if this size exists with the selected color
-                      const exists = selectedColor ? 
-                        product.variants.some(v => v.color === selectedColor && v.size === size) : 
-                        product.variants.some(v => v.size === size);
-                      
-                      return (
-                        <div key={size} className="flex items-center space-x-2">
-                          <RadioGroupItem 
-                            value={size} 
-                            id={`size-${size}`} 
-                            disabled={!exists} 
-                          />
-                          <Label 
-                            htmlFor={`size-${size}`} 
-                            className={`cursor-pointer ${!exists ? 'text-gray-400 line-through' : ''}`}
-                          >
-                            {size}
-                          </Label>
-                        </div>
-                      );
-                    })}
-                  </RadioGroup>
-                </div>
+                  {getAllSizes().map(size => (
+                    <div key={size} className="flex items-center space-x-2">
+                      <RadioGroupItem 
+                        value={size} 
+                        id={`size-${size}`} 
+                        disabled={!selectedColor || !isSizeAvailable(size)}
+                      />
+                      <Label 
+                        htmlFor={`size-${size}`} 
+                        className={`uppercase ${!selectedColor || !isSizeAvailable(size) ? 'line-through text-gray-400' : ''}`}
+                      >
+                        {size}
+                      </Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </div>
               
-              <div className="mt-4">
-                <p className="text-sm text-gray-600 mb-1">
+              {/* Availability */}
+              <div className="mb-4">
+                <p className="text-sm">
                   Availability: 
-                  <span className={`font-medium ${selectedVariant ? (selectedVariant.inventoryQuantity > 0 ? 'text-green-600' : 'text-red-600') : 'text-gray-600'}`}>
-                    {selectedVariant ? (selectedVariant.inventoryQuantity > 0 ? ' In Stock' : ' Out of Stock') : ' Select options'}
-                  </span>
+                  {selectedVariant ? (
+                    selectedVariant.inventoryQuantity > 0 ? (
+                      <span className="text-green-600 font-medium ml-1">In Stock</span>
+                    ) : (
+                      <span className="text-red-600 font-medium ml-1">Out of Stock</span>
+                    )
+                  ) : (
+                    <span className="text-red-600 font-medium ml-1">Out of Stock</span>
+                  )}
                 </p>
-                {selectedVariant && (
-                  <p className="text-sm text-gray-600">
-                    Quantity Available: <span className="font-medium">{selectedVariant.inventoryQuantity}</span>
+                {selectedVariant && selectedVariant.inventoryQuantity > 0 && (
+                  <p className="text-sm text-gray-500">
+                    Quantity Available: {selectedVariant.inventoryQuantity}
                   </p>
                 )}
               </div>
             </div>
           )}
           
-          <div className="border-t border-b border-gray-200 py-4 my-6">
-            <p className="text-gray-700 mb-4">
+          {/* Product Description */}
+          <div className="mb-6">
+            <p className="text-gray-600">
               {product.description}
             </p>
           </div>
           
-          <div className="flex items-center space-x-4 mb-6">
-            <span className="text-sm font-medium">Quantity:</span>
-            <div className="flex items-center border rounded overflow-hidden">
-              <button 
-                className="px-3 py-1 bg-gray-100 hover:bg-gray-200" 
-                onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
-                disabled={quantity <= 1 || !selectedVariant}
+          {/* Quantity and Add to Cart */}
+          <div className="mb-6">
+            <div className="flex items-center mb-4">
+              <span className="mr-4">Quantity:</span>
+              <div className="flex items-center border border-gray-300 rounded">
+                <button 
+                  onClick={() => quantity > 1 && setQuantity(quantity - 1)}
+                  className="px-3 py-1 border-r border-gray-300"
+                  disabled={quantity <= 1}
+                >
+                  -
+                </button>
+                <span className="px-4 py-1">{quantity}</span>
+                <button 
+                  onClick={() => setQuantity(quantity + 1)}
+                  className="px-3 py-1 border-l border-gray-300"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            
+            {validationError && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription>
+                  {validationError}
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {addedToCart && (
+              <Alert className="mb-4 bg-green-50 border-green-200">
+                <AlertDescription className="text-green-800">
+                  Item added to cart successfully!
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Button 
+                onClick={handleAddToCart}
+                disabled={!selectedVariant || selectedVariant.inventoryQuantity <= 0}
+                className="flex-1"
               >
-                -
-              </button>
-              <span className="px-3 py-1">{quantity}</span>
-              <button 
-                className="px-3 py-1 bg-gray-100 hover:bg-gray-200" 
-                onClick={() => setQuantity(prev => selectedVariant ? Math.min(selectedVariant.inventoryQuantity, prev + 1) : prev)}
-                disabled={!selectedVariant || (selectedVariant && quantity >= selectedVariant.inventoryQuantity)}
+                <ShoppingCart className="mr-2 h-4 w-4" /> Add to Cart
+              </Button>
+              
+              <Button 
+                onClick={handleBuyNow}
+                disabled={!selectedVariant || selectedVariant.inventoryQuantity <= 0}
+                variant="outline"
+                className="flex-1"
               >
-                +
-              </button>
+                <ShoppingBag className="mr-2 h-4 w-4" /> Buy Now
+              </Button>
             </div>
           </div>
-
-          {/* Success message when item is added to cart */}
-          {addedToCart && (
-            <Alert className="mb-4 bg-green-50 border-green-200 text-green-800">
-              <AlertDescription className="flex items-center">
-                <ShoppingCart className="h-5 w-5 mr-2" />
-                <span className="font-medium">
-                  {quantity} × {product.name} ({selectedColor}, {selectedSize}) added to your cart!
-                </span>
-              </AlertDescription>
-            </Alert>
-          )}
           
-          {/* Validation error message */}
-          {validationError && (
-            <Alert className="mb-4 bg-red-50 border-red-200 text-red-800">
-              <AlertDescription className="flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-                <span className="font-medium">{validationError}</span>
-              </AlertDescription>
-            </Alert>
-          )}
-          
-          <div className="flex space-x-4 mt-6">
-            <Button 
-              className="px-8 py-6" 
-              size="lg" 
-              disabled={!selectedVariant || selectedVariant.inventoryQuantity <= 0}
-              onClick={handleAddToCart}
-            >
-              <ShoppingCart className="mr-2 h-5 w-5" />
-              Add to Cart
-            </Button>
-            <Button 
-              variant="outline" 
-              className="px-8 py-6" 
-              size="lg"
-              disabled={!selectedVariant || selectedVariant.inventoryQuantity <= 0}
-              onClick={handleBuyNow}
-            >
-              <ShoppingBag className="mr-2 h-5 w-5" />
-              Buy Now
-            </Button>
-          </div>
-          
-          {/* Go to Cart button */}
-          <div className="mt-4">
-            <a 
-              href="/cart.html" 
-              className="inline-flex items-center text-indigo-600 hover:text-indigo-800 font-medium"
-            >
-              Go to Cart <ArrowRight className="ml-2 h-4 w-4" />
-            </a>
+          <div className="mt-8">
+            <Link href="/cart.html" className="text-primary hover:underline flex items-center">
+              Go to Cart <ArrowRight className="ml-1 h-4 w-4" />
+            </Link>
           </div>
         </div>
       </div>
       
-      {/* Product Description */}
-      <div className="mt-12">
+      {/* Product Description Section */}
+      <div className="mt-12 border-t pt-8">
         <h2 className="text-2xl font-bold mb-4">Product Description</h2>
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <p className="text-gray-700 whitespace-pre-line">
-            {product.description}
-          </p>
-        </div>
+        <p className="text-gray-600">
+          {product.description}
+        </p>
       </div>
     </div>
   );
