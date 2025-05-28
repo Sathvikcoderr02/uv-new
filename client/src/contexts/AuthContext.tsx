@@ -106,7 +106,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     { email: string; otp: string }
   >({
     mutationFn: async ({ email, otp }) => {
-      const res = await apiRequest('POST', '/api/auth/verify-otp', { email, otp });
+      // Normalize OTP - remove spaces and ensure it's a string
+      const normalizedOtp = String(otp).replace(/\s+/g, '');
+      
+      // Enhanced logging for OTP verification
+      console.log('%c 🔑 OTP VERIFICATION ATTEMPT ', 'background: #4F46E5; color: white; padding: 2px 6px; border-radius: 4px;');
+      console.log('%c Email: ', 'font-weight: bold;', email);
+      console.log('%c Original OTP input: ', 'font-weight: bold;', `"${otp}"`);
+      console.log('%c Normalized OTP: ', 'font-weight: bold;', `"${normalizedOtp}"`);
+      console.log('%c OTP length: ', 'font-weight: bold;', normalizedOtp.length);
+      
+      const res = await apiRequest('POST', '/api/auth/verify-otp', { 
+        email, 
+        otp: normalizedOtp 
+      });
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.message || 'Invalid verification code');
