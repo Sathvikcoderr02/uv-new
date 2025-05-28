@@ -316,9 +316,7 @@ export default function ProductDetailPage() {
         <div className="bg-white rounded-lg overflow-hidden shadow-md">
           <div className="aspect-square relative">
             <img 
-              src={selectedColor && product.id === 14 ? 
-                `/images/products/${product.id}_${selectedColor.toLowerCase()}.jpg` : 
-                (selectedVariant?.imageUrl || product.featured_image_url)} 
+              src={selectedVariant?.imageUrl || product.featured_image_url} 
               alt={`${product.name}${selectedColor ? ` - ${selectedColor}` : ''}`}
               className="w-full h-full object-cover" 
               onError={(e) => {
