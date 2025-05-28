@@ -50,13 +50,26 @@ export default function ProductDetailPage() {
     const fetchProduct = async () => {
       try {
         setLoading(true);
+        if (config.enableDebugLogs) {
+          console.log(`Fetching product from: ${config.apiBaseUrl}/api/products/${productId}`);
+        }
+        
         // Fetch product details
         const productResponse = await axios.get(`${config.apiBaseUrl}/api/products/${productId}`);
         const productData = productResponse.data;
         
+        if (config.enableDebugLogs) {
+          console.log('Product data received:', productData);
+          console.log(`Fetching variants from: ${config.apiBaseUrl}/api/products/${productId}/variants`);
+        }
+        
         // Fetch product variants
         const variantsResponse = await axios.get(`${config.apiBaseUrl}/api/products/${productId}/variants`);
         const variantsData = variantsResponse.data;
+        
+        if (config.enableDebugLogs) {
+          console.log('Variant data received:', variantsData);
+        }
         
         // Combine product with its variants
         const fullProduct = {
@@ -73,8 +86,18 @@ export default function ProductDetailPage() {
         
         setLoading(false);
       } catch (err) {
-        console.error('Error fetching product:', err);
-        setError('Failed to load product details. Please try again later.');
+        if (config.enableDebugLogs) {
+          console.error('Error fetching product:', err);
+          if (axios.isAxiosError(err)) {
+            console.error('API Error Details:', {
+              status: err.response?.status,
+              data: err.response?.data,
+              headers: err.response?.headers
+            });
+          }
+        }
+        
+        setError(`Failed to load product details. Please try again later. ${config.enableDebugLogs ? '(Check console for details)' : ''}`);
         setLoading(false);
       }
     };
