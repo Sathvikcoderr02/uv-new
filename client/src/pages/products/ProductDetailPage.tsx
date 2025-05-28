@@ -194,10 +194,7 @@ export default function ProductDetailPage() {
 
   // Check if a size is available for the selected color
   const isSizeAvailable = (size: string) => {
-    if (!product) return false;
-    
-    // If no color is selected yet, show all sizes as available
-    if (!selectedColor) return true;
+    if (!product || !selectedColor) return false;
     
     // Always return true if the variant exists, regardless of inventory
     return product.variants.some(variant => 
@@ -491,7 +488,7 @@ export default function ProductDetailPage() {
                       />
                       <Label 
                         htmlFor={`size-${size}`} 
-                        className={`uppercase ${!selectedColor || !isSizeAvailable(size) ? 'line-through text-gray-400' : ''}`}
+                        className={`uppercase ${!isSizeAvailable(size) ? 'line-through text-gray-400' : ''}`}
                       >
                         {size}
                       </Label>
