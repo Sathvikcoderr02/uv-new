@@ -261,11 +261,13 @@ export default function ProductDetailPage() {
   
   // Handle color hover
   const handleColorMouseEnter = (color: string) => {
+    console.log('Mouse enter on color:', color);
     setHoveredColor(color);
   };
   
   // Handle mouse leave
   const handleColorMouseLeave = () => {
+    console.log('Mouse leave from color');
     setHoveredColor(null);
   };
   
@@ -275,6 +277,7 @@ export default function ProductDetailPage() {
     
     // If a color is being hovered, show that color's image
     if (hoveredColor) {
+      console.log('Using hovered color for image:', hoveredColor);
       // For Allen Solly products, use hardcoded images
       if (product.id === 14) {
         const allenSollyImages: Record<string, string> = {
@@ -564,8 +567,8 @@ export default function ProductDetailPage() {
           <div className="mb-4">
             {selectedVariant ? (
               <>
-                <span className="text-2xl font-bold text-primary">${selectedVariant.sellingPrice}</span>
-                {selectedVariant.mrp && Number(selectedVariant.mrp) > Number(selectedVariant.sellingPrice) && (
+                <span className="text-2xl font-bold text-primary">${selectedVariant.sellingPrice || selectedVariant.selling_price}</span>
+                {selectedVariant.mrp && Number(selectedVariant.mrp) > Number(selectedVariant.sellingPrice || selectedVariant.selling_price || 0) && (
                   <span className="text-sm text-gray-500 line-through ml-2">${selectedVariant.mrp}</span>
                 )}
               </>
@@ -592,9 +595,12 @@ export default function ProductDetailPage() {
                         onClick={() => handleColorSelect(color)}
                         onMouseEnter={() => handleColorMouseEnter(color)}
                         onMouseLeave={handleColorMouseLeave}
+                        style={{ marginBottom: '30px' }} // Add space for the color name below
                       >
                         <div 
                           className={`w-16 h-16 rounded-md overflow-hidden border-2 ${isSelected ? 'border-primary' : 'border-gray-300'}`}
+                          onMouseEnter={() => handleColorMouseEnter(color)}
+                          onMouseLeave={handleColorMouseLeave}
                         >
                           <img 
                             src={variantImage} 
