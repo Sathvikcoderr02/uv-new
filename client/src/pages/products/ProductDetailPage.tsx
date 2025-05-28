@@ -163,21 +163,17 @@ export default function ProductDetailPage() {
     // Find a variant with the selected color
     if (product) {
       // First try to find a variant with inventory
-      const variant = product.variants.find(v => v.color === color && v.inventoryQuantity > 0);
+      const variant = product.variants.find(v => v.color === color);
       
       if (variant) {
+        console.log('Selected variant:', variant);
+        console.log('Variant image URL:', variant.imageUrl);
         setSelectedVariant(variant);
         setSelectedSize(variant.size);
       } else {
-        // If no variant with inventory, just find any variant with this color
-        const anyVariant = product.variants.find(v => v.color === color);
-        if (anyVariant) {
-          setSelectedVariant(anyVariant);
-          setSelectedSize(anyVariant.size);
-        } else {
-          setSelectedVariant(null);
-          setSelectedSize(null);
-        }
+        console.warn(`No variant found for color: ${color}`);
+        setSelectedVariant(null);
+        setSelectedSize(null);
       }
     }
   };
@@ -335,12 +331,13 @@ export default function ProductDetailPage() {
         <div className="bg-white rounded-lg overflow-hidden shadow-md">
           <div className="aspect-square relative">
             <img 
-              src={selectedVariant?.imageUrl || product.featured_image_url} 
+              src={selectedVariant?.imageUrl || product.featured_image_url || '/images/placeholder-product.jpg'} 
               alt={`${product.name}${selectedColor ? ` - ${selectedColor}` : ''}`}
               className="w-full h-full object-cover" 
               onError={(e) => {
-                console.error('Image failed to load:', e);
-                e.currentTarget.src = 'https://via.placeholder.com/400x400?text=Product+Image';
+                console.warn('Image failed to load, using fallback');
+                e.currentTarget.src = '/images/placeholder-product.jpg';
+                e.currentTarget.alt = 'Placeholder product image';
               }}
             />
             {product.is_featured && (
