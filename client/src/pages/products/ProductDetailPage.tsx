@@ -194,7 +194,11 @@ export default function ProductDetailPage() {
 
   // Check if a size is available for the selected color
   const isSizeAvailable = (size: string) => {
-    if (!product || !selectedColor) return false;
+    if (!product) return false;
+    
+    // If no color is selected yet, show all sizes as available
+    if (!selectedColor) return true;
+    
     // Always return true if the variant exists, regardless of inventory
     return product.variants.some(variant => 
       variant.color === selectedColor && 
@@ -337,21 +341,24 @@ export default function ProductDetailPage() {
     
     // Add to cart logic
     // Make sure we use the correct image URL for the variant
-    let variantImage = variant.imageUrl || variant.image_url;
+    let variantImage;
     
-    // For Allen Solly products, use the hardcoded image URLs if needed
-    if (product.id === 14 && !variantImage) {
+    // For Allen Solly products (ID 14), use specific images based on color
+    if (product.id === 14) {
       const allenSollyImages = {
         'Black': 'https://images.unsplash.com/photo-1620012253295-c15cc3e65df4?q=80&w=1965&auto=format&fit=crop&ixlib=rb-4.0.3',
         'Blue': 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?q=80&w=1976&auto=format&fit=crop&ixlib=rb-4.0.3',
         'White': 'https://images.unsplash.com/photo-1598032895397-b9472444bf93?q=80&w=1780&auto=format&fit=crop&ixlib=rb-4.0.3'
       };
-      variantImage = allenSollyImages[selectedColor] || product.featured_image_url;
+      
+      if (selectedColor && allenSollyImages[selectedColor]) {
+        variantImage = allenSollyImages[selectedColor];
+      }
     }
     
-    // If still no image, use the product's featured image
+    // If not Allen Solly or no specific image found, use variant image or product image
     if (!variantImage) {
-      variantImage = product.featured_image_url;
+      variantImage = variant.imageUrl || variant.image_url || product.featured_image_url;
     }
     
     console.log('Adding to cart with image URL:', variantImage);
