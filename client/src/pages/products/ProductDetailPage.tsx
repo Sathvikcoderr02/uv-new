@@ -336,14 +336,34 @@ export default function ProductDetailPage() {
     }
     
     // Add to cart logic
+    // Make sure we use the correct image URL for the variant
+    let variantImage = variant.imageUrl || variant.image_url;
+    
+    // For Allen Solly products, use the hardcoded image URLs if needed
+    if (product.id === 14 && !variantImage) {
+      const allenSollyImages = {
+        'Black': 'https://images.unsplash.com/photo-1620012253295-c15cc3e65df4?q=80&w=1965&auto=format&fit=crop&ixlib=rb-4.0.3',
+        'Blue': 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?q=80&w=1976&auto=format&fit=crop&ixlib=rb-4.0.3',
+        'White': 'https://images.unsplash.com/photo-1598032895397-b9472444bf93?q=80&w=1780&auto=format&fit=crop&ixlib=rb-4.0.3'
+      };
+      variantImage = allenSollyImages[selectedColor] || product.featured_image_url;
+    }
+    
+    // If still no image, use the product's featured image
+    if (!variantImage) {
+      variantImage = product.featured_image_url;
+    }
+    
+    console.log('Adding to cart with image URL:', variantImage);
+    
     const cartItem = {
       id: product.id,
       variantId: variant.id,
       name: product.name,
       color: selectedColor,
       size: selectedSize,
-      price: variant.sellingPrice,
-      image: variant.imageUrl || product.featured_image_url,
+      price: variant.sellingPrice || variant.selling_price,
+      image: variantImage,
       quantity: quantity
     };
     
