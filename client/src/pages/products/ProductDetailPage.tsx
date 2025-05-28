@@ -84,8 +84,23 @@ export default function ProductDetailPage() {
             'Accept': 'application/json'
           }
         });
-        const variantsData = variantsResponse.data;
-        console.log('Variant data received:', variantsData);
+        let variantsData = variantsResponse.data;
+        console.log('Raw variant data received:', variantsData);
+        
+        // Transform variant data to ensure property names match the interface
+        variantsData = variantsData.map(variant => {
+          // Map image_url to imageUrl if needed
+          if (variant.image_url !== undefined && variant.imageUrl === undefined) {
+            console.log(`Transforming variant ${variant.id} image_url to imageUrl:`, variant.image_url);
+            return {
+              ...variant,
+              imageUrl: variant.image_url
+            };
+          }
+          return variant;
+        });
+        
+        console.log('Transformed variant data:', variantsData);
         
         // Combine product with its variants
         const fullProduct = {
@@ -167,7 +182,7 @@ export default function ProductDetailPage() {
       
       if (variant) {
         console.log('Selected variant:', variant);
-        console.log('Variant image URL:', variant.image_url);
+        console.log('Variant image URL:', variant.imageUrl);
         setSelectedVariant(variant);
         setSelectedSize(variant.size);
       } else {
@@ -331,7 +346,7 @@ export default function ProductDetailPage() {
         <div className="bg-white rounded-lg overflow-hidden shadow-md">
           <div className="aspect-square relative">
             <img 
-              src={selectedVariant?.image_url || product.featured_image_url || '/images/placeholder-product.jpg'} 
+              src={selectedVariant?.imageUrl || product.featured_image_url || '/images/placeholder-product.jpg'} 
               alt={`${product.name}${selectedColor ? ` - ${selectedColor}` : ''}`}
               className="w-full h-full object-cover" 
               onError={(e) => {
