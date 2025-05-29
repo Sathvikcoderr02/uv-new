@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     data: user,
     isLoading,
     error,
-  } = useQuery<User | null, Error>({
+  } = useQuery<User | null, Error, User | null>({
     queryKey: ['/api/auth/session'],
     queryFn: async () => {
       try {
@@ -199,32 +199,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
   
-  // Fetch impersonation status
-  const {
-    data: impersonationStatus,
-    isLoading: isLoadingImpersonationStatus,
-  } = useQuery<ImpersonationStatus, Error>({
-    queryKey: ['/api/auth/impersonation-status'],
-    queryFn: async () => {
-      if (!user) return { isImpersonating: false, originalUser: null };
-      
-      try {
-        const res = await apiRequest('GET', '/api/auth/impersonation-status');
-        if (!res.ok) {
-          if (res.status === 401) {
-            return { isImpersonating: false, originalUser: null };
-          }
-          throw new Error('Failed to fetch impersonation status');
-        }
-        return await res.json();
-      } catch (error) {
-        console.error('Error fetching impersonation status:', error);
-        return { isImpersonating: false, originalUser: null };
-      }
-    },
-    enabled: !!user, // Only run if user is logged in
-  });
-  
+  // Impersonation is not implemented in the production API yet
+  const impersonationStatus = { isImpersonating: false, originalUser: null };
+  const isLoadingImpersonationStatus = false;
+
   // Impersonate user mutation
   const impersonateUserMutation = useMutation<
     { message: string; user: User; impersonationStarted: boolean },
@@ -299,14 +277,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
+  // Ensure we have a proper user object or null
+  const safeUser = user || null;
+  
   return (
     <AuthContext.Provider
       value={{
-        user,
+        user: safeUser,
         isLoading,
-        isAuthenticated: !!user,
+        isAuthenticated: !!safeUser,
         error,
-        impersonationStatus: impersonationStatus || null,
+        impersonationStatus,
         isLoadingImpersonationStatus,
         requestOtpMutation,
         verifyOtpMutation,
