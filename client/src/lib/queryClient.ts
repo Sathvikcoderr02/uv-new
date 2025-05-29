@@ -28,23 +28,30 @@ export async function apiRequest(
   
   const headers: Record<string, string> = {};
   
-  // Add Content-Type for requests with body
+  // Only set Content-Type for requests with body
   if (data) {
     headers['Content-Type'] = 'application/json';
   }
   
-  // Add X-Requested-With header for CORS
-  headers['X-Requested-With'] = 'XMLHttpRequest';
-  
-  const res = await fetch(url, {
-    method,
-    headers,
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: 'include',
-  });
+  try {
+    const res = await fetch(url, {
+      method,
+      headers,
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: 'include',
+      mode: 'cors', // Ensure CORS mode is set
+    });
 
-  await throwIfResNotOk(res);
-  return res;
+    if (!res.ok) {
+      const error = await res.text().catch(() => res.statusText);
+      throw new Error(`HTTP error! status: ${res.status}, message: ${error}`);
+    }
+    
+    return res;
+  } catch (error) {
+    console.error('API Request Error:', error);
+    throw error;
+  }
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
