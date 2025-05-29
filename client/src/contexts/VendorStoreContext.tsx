@@ -233,35 +233,49 @@ export function VendorStoreProvider({ children }: VendorStoreProviderProps) {
     const fetchStoreInfo = async () => {
       try {
         setLoading(true);
-        // Get current domain information
-        const res = await apiRequest('GET', '/api/store/current');
         
-        if (res.status === 404) {
-          // Not a vendor store domain
+        // Skip store info fetch if we're on the main domain
+        if (window.location.hostname === 'uv-new-motk.vercel.app') {
           setIsVendorStore(false);
           setLoading(false);
           return;
         }
         
-        if (!res.ok) {
-          throw new Error('Failed to fetch store information');
-        }
-        
-        const data = await res.json();
-        
-        if (data.isVendorStore && data.vendor) {
-          setIsVendorStore(true);
-          setVendor(data.vendor);
-          setDomain(data.domain);
+        try {
+          // Get current domain information
+          const res = await apiRequest('GET', '/api/store/current');
           
-          // Apply theme styling
-          applyStoreTheme(data.vendor);
-        } else {
+          if (res.status === 404) {
+            setIsVendorStore(false);
+            setLoading(false);
+            return;
+          }
+          
+          if (!res.ok) {
+            throw new Error('Failed to fetch store information');
+          }
+          
+          const data = await res.json();
+          
+          if (data.isVendorStore && data.vendor) {
+            setIsVendorStore(true);
+            setVendor(data.vendor);
+            setDomain(data.domain);
+            
+            // Apply theme styling
+            applyStoreTheme(data.vendor);
+          } else {
+            setIsVendorStore(false);
+          }
+        } catch (err) {
+          console.error('Error fetching store info:', err);
           setIsVendorStore(false);
         }
       } catch (err) {
         console.error('Error fetching store information:', err);
-        setError(err instanceof Error ? err.message : 'An unknown error occurred');
+        // Don't show error for store info fetch failures
+        // Just treat as not a vendor store
+        setIsVendorStore(false);
       } finally {
         setLoading(false);
       }
