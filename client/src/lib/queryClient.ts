@@ -26,11 +26,21 @@ export async function apiRequest(
   
   console.log(`[API Request] ${method} ${url}`, data);
   
+  const headers: Record<string, string> = {};
+  
+  // Add Content-Type for requests with body
+  if (data) {
+    headers['Content-Type'] = 'application/json';
+  }
+  
+  // Add X-Requested-With header for CORS
+  headers['X-Requested-With'] = 'XMLHttpRequest';
+  
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
+    credentials: 'include',
   });
 
   await throwIfResNotOk(res);
