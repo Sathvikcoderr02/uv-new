@@ -8,15 +8,20 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // Enable CORS with specific options
-app.use(cors({
+const corsOptions = {
   origin: ['https://uv-new-motk.vercel.app', 'http://localhost:3000'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
-}));
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with'],
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+// Apply CORS middleware
+app.use(cors(corsOptions));
 
 // Handle preflight requests
-app.options('*', cors());
+app.options('*', cors(corsOptions));
 
 // Email transporter setup
 const transporter = nodemailer.createTransport({
