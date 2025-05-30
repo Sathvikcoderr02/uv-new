@@ -164,6 +164,20 @@ export function setupAuth(app: Express) {
           role,
           isProfileComplete: false
         });
+      } else {
+        // Always fetch the latest user data from the database to ensure we have the current role
+        console.log('OTP verification - Fetching latest user data for:', email);
+        const latestUser = await storage.getUser(user.id);
+        if (latestUser) {
+          console.log('OTP verification - User data found:', {
+            id: latestUser.id,
+            email: latestUser.email,
+            role: latestUser.role,
+            previousRole: user.role,
+            roleChanged: latestUser.role !== user.role
+          });
+          user = latestUser;
+        }
       }
       
       // Log the user in
@@ -173,7 +187,15 @@ export function setupAuth(app: Express) {
           return res.status(500).json({ message: "Failed to log in" });
         }
         
-        return res.status(200).json(user);
+        // Add debug information to help track role issues
+        return res.status(200).json({
+          ...user,
+          _debug: {
+            dbRole: user.role,
+            fetchMethod: 'verify-otp',
+            timestamp: new Date().toISOString()
+          }
+        });
       });
     } catch (err) {
       console.error("Error verifying OTP:", err);
