@@ -6,6 +6,14 @@ import { storage } from "./storage";
 import { User } from "@shared/schema";
 import { generateOtp, sendOtpEmail } from "./emailService";
 
+// Define AuthRequest type to include user property
+interface AuthRequest extends Request {
+  user?: User;
+  isAuthenticated(): boolean;
+  login(user: User, callback: (err: any) => void): void;
+  logout(callback: (err: any) => void): void;
+}
+
 declare global {
   namespace Express {
     interface User extends User {
@@ -181,7 +189,7 @@ export function setupAuth(app: Express) {
       }
       
       // Log the user in
-      req.login(user, async (err) => {
+      req.login(user as User, async (err) => {
         if (err) {
           console.error("Login error:", err);
           return res.status(500).json({ message: "Failed to log in" });
@@ -412,13 +420,39 @@ export function isAuthenticated(req: Request, res: Response, next: NextFunction)
 
 // Middleware to check if user has required role
 export function hasRole(roles: string[]) {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return async (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Authentication required" });
     }
     
+    // Special case for vendor role - check database directly
+    if (roles.includes('vendor') && req.user) {
+      try {
+        // Check if there's a record with this email and vendor role
+        const userByEmail = await storage.getUserByEmail(req.user.email);
+        if (userByEmail && userByEmail.role === 'vendor') {
+          console.log('hasRole middleware - Found user with vendor role in database:', {
+            email: userByEmail.email,
+            dbRole: userByEmail.role,
+            sessionRole: req.user.role
+          });
+          
+          // Update session with the vendor role
+          req.user.role = 'vendor';
+          return next();
+        }
+      } catch (error) {
+        console.error('Error checking vendor role:', error);
+      }
+    }
+    
+    // Standard role check
     if (roles.length > 0 && !roles.includes(req.user.role)) {
-      return res.status(403).json({ message: "Insufficient permissions" });
+      return res.status(403).json({ 
+        message: "Insufficient permissions",
+        requiredRoles: roles,
+        currentRole: req.user.role
+      });
     }
     
     return next();
