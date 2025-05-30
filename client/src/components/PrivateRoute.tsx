@@ -37,7 +37,11 @@ const PrivateRoute = ({ children, roles = [] }: PrivateRouteProps) => {
   }
 
   // If authenticated and authorized, render children
+  console.log(user,roles,user?.role);
   if (user && (roles.length === 0 || roles.includes(user.role))) {
+    console.log("User is authenticated and authorized");
+    console.log(children);
+
     return <>{children}</>;
   }
 
