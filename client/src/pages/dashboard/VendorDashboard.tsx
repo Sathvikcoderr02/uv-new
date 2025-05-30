@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/use-auth';
+import config from '@/config';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import StatCard from '@/components/dashboard/StatCard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,19 +29,40 @@ const VendorDashboard = () => {
   
   // Fetch vendor data
   const { data: vendor, isLoading: isLoadingVendor } = useQuery({
-    queryKey: ['/api/vendors', vendorId],
+    queryKey: ['vendors', vendorId],
+    queryFn: async () => {
+      const res = await fetch(`${config.apiBaseUrl}/api/vendors/${vendorId}`, {
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to fetch vendor data');
+      return res.json();
+    },
     enabled: !!vendorId,
   });
   
   // Fetch vendor's products
   const { data: products } = useQuery({
-    queryKey: [`/api/vendors/${vendorId}/products`],
+    queryKey: ['vendor-products', vendorId],
+    queryFn: async () => {
+      const res = await fetch(`${config.apiBaseUrl}/api/vendors/${vendorId}/products`, {
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to fetch products');
+      return res.json();
+    },
     enabled: !!vendorId,
   });
   
   // Fetch vendor's orders
   const { data: orders } = useQuery({
-    queryKey: [`/api/vendors/${vendorId}/orders`],
+    queryKey: ['vendor-orders', vendorId],
+    queryFn: async () => {
+      const res = await fetch(`${config.apiBaseUrl}/api/vendors/${vendorId}/orders`, {
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to fetch orders');
+      return res.json();
+    },
     enabled: !!vendorId,
   });
 
