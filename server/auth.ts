@@ -219,7 +219,19 @@ export function setupAuth(app: Express) {
               return res.status(500).json({ message: "Failed to update session" });
             }
             console.log('Session check - Session updated successfully with new role:', latestUser.role);
-            return res.status(200).json(latestUser);
+            // Add headers to help debug in browser
+            res.setHeader('X-User-Role', latestUser.role);
+            res.setHeader('X-Role-Changed', String(latestUser.role !== req.user.role));
+            res.setHeader('X-DB-Role', latestUser.role);
+            res.setHeader('X-Session-Role', req.user.role);
+            return res.status(200).json({
+              ...latestUser,
+              _debug: {
+                dbRole: latestUser.role,
+                sessionRole: req.user.role,
+                roleChanged: latestUser.role !== req.user.role
+              }
+            });
           });
         } else {
           console.log('Session check - User not found in database:', req.user.id);
