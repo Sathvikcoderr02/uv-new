@@ -51,6 +51,61 @@ function handleValidationError(err: unknown, res: Response) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Add a database check endpoint
+  app.get("/api/db-check", async (req, res) => {
+    try {
+      console.log('DB Check - Request received');
+      console.log('DB Check - DATABASE_URL:', process.env.DATABASE_URL ? process.env.DATABASE_URL.replace(/:[^:]*@/, ':****@') : 'Not set');
+      
+      // Check database connection using db from ./db
+      const dbUsers = await db.select().from(users).limit(5);
+      
+      // Check database connection using storage
+      const storageUsers = await storage.getAllUsers();
+      
+      // Try direct connection to Neon database
+      const { Pool } = require('pg');
+      const neonPool = new Pool({
+        connectionString: 'postgresql://neondb_owner:npg_MgD6I0eNokLv@ep-lucky-rice-a57yzbrw-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require'
+      });
+      
+      const neonResult = await neonPool.query('SELECT id, email, role FROM users LIMIT 5');
+      await neonPool.end();
+      
+      return res.status(200).json({
+        message: 'Database check completed',
+        dbConnection: {
+          connected: true,
+          userCount: dbUsers.length,
+          users: dbUsers.map(u => ({ id: u.id, email: u.email, role: u.role }))
+        },
+        storageConnection: {
+          connected: true,
+          userCount: storageUsers.length,
+          users: storageUsers.map(u => ({ id: u.id, email: u.email, role: u.role }))
+        },
+        neonConnection: {
+          connected: true,
+          userCount: neonResult.rows.length,
+          users: neonResult.rows
+        },
+        environment: {
+          NODE_ENV: process.env.NODE_ENV,
+          DATABASE_URL: process.env.DATABASE_URL ? 'Set (hidden)' : 'Not set',
+          VERCEL: process.env.VERCEL ? 'true' : 'false',
+          RENDER: process.env.RENDER ? 'true' : 'false'
+        }
+      });
+    } catch (error) {
+      console.error('DB Check - Error:', error);
+      return res.status(500).json({
+        message: 'Database check failed',
+        error: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
+  });
+  
   // Set up authentication with OTP
   setupAuth(app);
   
