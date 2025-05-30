@@ -167,10 +167,33 @@ export function setupAuth(app: Express) {
       }
       
       // Log the user in
-      req.login(user, (err) => {
+      req.login(user, async (err) => {
         if (err) {
           console.error("Login error:", err);
           return res.status(500).json({ message: "Failed to log in" });
+        }
+        
+        // Get the latest user data from the database to ensure we have the most up-to-date role
+        try {
+          const latestUser = await storage.getUser(user.id);
+          if (latestUser) {
+            // Update the session with the latest user data
+            req.session.user = latestUser;
+            await new Promise<void>((resolve, reject) => {
+              req.session.save((err) => {
+                if (err) {
+                  console.error("Error saving session:", err);
+                  reject(err);
+                } else {
+                  resolve();
+                }
+              });
+            });
+            return res.status(200).json(latestUser);
+          }
+        } catch (error) {
+          console.error("Error fetching latest user data:", error);
+          // Return the original user data if we can't get the latest
         }
         
         return res.status(200).json(user);
