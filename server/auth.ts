@@ -173,29 +173,6 @@ export function setupAuth(app: Express) {
           return res.status(500).json({ message: "Failed to log in" });
         }
         
-        // Get the latest user data from the database to ensure we have the most up-to-date role
-        try {
-          const latestUser = await storage.getUser(user.id);
-          if (latestUser) {
-            // Update the session with the latest user data
-            req.session.user = latestUser;
-            await new Promise<void>((resolve, reject) => {
-              req.session.save((err) => {
-                if (err) {
-                  console.error("Error saving session:", err);
-                  reject(err);
-                } else {
-                  resolve();
-                }
-              });
-            });
-            return res.status(200).json(latestUser);
-          }
-        } catch (error) {
-          console.error("Error fetching latest user data:", error);
-          // Return the original user data if we can't get the latest
-        }
-        
         return res.status(200).json(user);
       });
     } catch (err) {
@@ -205,17 +182,56 @@ export function setupAuth(app: Express) {
   });
 
   // Check session status
-  app.get("/api/auth/session", (req, res) => {
-    if (req.isAuthenticated()) {
-      // Ensure the session is kept alive by touching it
-      req.session.touch();
-      // Save the session to ensure cookie expiry is updated
-      req.session.save((err) => {
-        if (err) {
-          console.error("Session save error:", err);
-        }
-        return res.status(200).json(req.user);
+  app.get("/api/auth/session", async (req: AuthRequest, res) => {
+    console.log('Session check - Request received');
+    if (req.isAuthenticated() && req.user) {
+      console.log('Session check - User authenticated:', {
+        sessionUserId: req.user.id,
+        sessionUserEmail: req.user.email,
+        currentRole: req.user.role
       });
+      
+      try {
+        // Fetch latest user data from database
+        console.log('Session check - Fetching latest user data from database...');
+        const latestUser = await storage.getUser(req.user.id);
+        
+        if (latestUser) {
+          console.log('Session check - Latest user data found:', {
+            userId: latestUser.id,
+            email: latestUser.email,
+            newRole: latestUser.role,
+            oldRole: req.user.role,
+            roleChanged: latestUser.role !== req.user.role
+          });
+          
+          // Update session with latest user data
+          req.user = latestUser;
+          req.session.user = latestUser;
+          
+          // Ensure the session is kept alive by touching it
+          req.session.touch();
+          
+          // Save the session to ensure cookie expiry is updated
+          req.session.save((err) => {
+            if (err) {
+              console.error("Session save error:", err);
+              return res.status(500).json({ message: "Failed to update session" });
+            }
+            console.log('Session check - Session updated successfully with new role:', latestUser.role);
+            return res.status(200).json(latestUser);
+          });
+        } else {
+          console.log('Session check - User not found in database:', req.user.id);
+          // User no longer exists in database
+          req.logout(() => {
+            res.status(401).json({ message: "User not found" });
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching user data:", err);
+        return res.status(500).json({ message: "Internal server error" });
+      }
     } else {
       return res.status(401).json({ message: "Not authenticated" });
     }
