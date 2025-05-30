@@ -47,6 +47,33 @@ export async function apiRequest(
       throw new Error(`HTTP error! status: ${res.status}, message: ${error}`);
     }
     
+    // Check for authentication-related endpoints to log role information
+    if (endpoint.includes('/auth/verify-otp') || endpoint.includes('/auth/session')) {
+      // Clone the response to avoid consuming it
+      const resClone = res.clone();
+      
+      // Process the response asynchronously to log role information
+      resClone.json().then(data => {
+        console.log(`%c [Role Debug] ${endpoint}`, 'background: #3B82F6; color: white; padding: 2px 6px; border-radius: 4px;');
+        console.log('%c User Data:', 'font-weight: bold;', data);
+        
+        // Check if debug info is available
+        if (data._debug) {
+          console.log('%c Role Information:', 'font-weight: bold;', {
+            dbRole: data._debug.dbRole,
+            sessionRole: data._debug.sessionRole,
+            roleChanged: data._debug.roleChanged,
+            isVendor: data.role === 'vendor'
+          });
+        } else {
+          console.log('%c Role:', 'font-weight: bold;', data.role);
+          console.log('%c Is Vendor:', 'font-weight: bold;', data.role === 'vendor');
+        }
+      }).catch(err => {
+        console.error('Error parsing response for role logging:', err);
+      });
+    }
+    
     return res;
   } catch (error) {
     console.error('API Request Error:', error);
