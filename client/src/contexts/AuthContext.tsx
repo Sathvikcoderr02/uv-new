@@ -176,7 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     mutationFn: async (profileData) => {
       if (!user) throw new Error('Not authenticated');
       
-      const res = await apiRequest('PATCH', `/api/users/${user.id}`, profileData);
+      const res = await apiRequest('PATCH', `/api/users/complete-profile`, profileData);
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.message || 'Failed to update profile');
@@ -184,13 +184,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return await res.json();
     },
     onSuccess: (updatedUser) => {
+      // Force a refresh of the session data
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/session'] });
+      
+      // Also update the local cache with the new user data
       queryClient.setQueryData(['/api/auth/session'], updatedUser);
+      
       toast({
         title: 'Profile Updated',
         description: 'Your profile has been updated successfully.',
       });
     },
     onError: (error) => {
+      console.error('Profile update error:', error);
       toast({
         title: 'Update Failed',
         description: error.message,
