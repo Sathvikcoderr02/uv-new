@@ -6,14 +6,6 @@ import { storage } from "./storage";
 import { User } from "@shared/schema";
 import { generateOtp, sendOtpEmail } from "./emailService";
 
-// Define AuthRequest type to include user property
-interface AuthRequest extends Request {
-  user?: User;
-  isAuthenticated(): boolean;
-  login(user: User, callback: (err: any) => void): void;
-  logout(callback: (err: any) => void): void;
-}
-
 declare global {
   namespace Express {
     interface User extends User {
@@ -27,6 +19,20 @@ declare global {
 }
 
 export function setupAuth(app: Express) {
+  // Log database connection info
+  console.log('AUTH SETUP - Database connection info:');
+  console.log('DATABASE_URL:', process.env.DATABASE_URL ? process.env.DATABASE_URL.replace(/:[^:]*@/, ':****@') : 'Not set');
+  
+  // Log all users in the database for debugging
+  db.select().from(users).then((allUsers: any[]) => {
+    console.log('AUTH SETUP - All users in database:');
+    allUsers.forEach((user: any) => {
+      console.log(`ID: ${user.id}, Email: ${user.email}, Role: ${user.role}`);
+    });
+  }).catch((err: any) => {
+    console.error('AUTH SETUP - Error fetching users:', err);
+  });
+  
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || randomBytes(32).toString("hex"),
     resave: false,
@@ -130,6 +136,7 @@ export function setupAuth(app: Express) {
 
   // Set up OTP verification endpoint
   app.post("/api/auth/verify-otp", async (req, res) => {
+    console.log('VERIFY OTP - Request received:', { email: req.body.email });
     try {
       const { email, otp } = req.body;
       
@@ -160,6 +167,26 @@ export function setupAuth(app: Express) {
       await storage.markOtpAsUsed(latestOtp.id);
       
       // Check if user exists, if not create a new user
+      console.log('OTP verification - Checking for user with email:', email);
+      
+      // Special case for this email - check all users with this email
+      if (email === 'sathvik1702@gmail.com') {
+        console.log('OTP verification - Special user detected, checking all records');
+        const allUsers = await db.select().from(users).where(eq(users.email, email));
+        console.log(`OTP verification - Found ${allUsers.length} users with email ${email}:`);
+        allUsers.forEach((user: any) => {
+          console.log(`ID: ${user.id}, Email: ${user.email}, Role: ${user.role}`);
+        });
+        
+        // If we found a user with vendor role, force update the role
+        const vendorUser = allUsers.find((u: any) => u.role === 'vendor');
+        if (vendorUser) {
+          console.log('OTP verification - Found vendor user, will use this record:', vendorUser);
+        } else {
+          console.log('OTP verification - No vendor user found, will update role');
+        }
+      }
+      
       let user = await storage.getUserByEmail(email);
       
       if (!user) {
@@ -420,39 +447,13 @@ export function isAuthenticated(req: Request, res: Response, next: NextFunction)
 
 // Middleware to check if user has required role
 export function hasRole(roles: string[]) {
-  return async (req: AuthRequest, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Authentication required" });
     }
     
-    // Special case for vendor role - check database directly
-    if (roles.includes('vendor') && req.user) {
-      try {
-        // Check if there's a record with this email and vendor role
-        const userByEmail = await storage.getUserByEmail(req.user.email);
-        if (userByEmail && userByEmail.role === 'vendor') {
-          console.log('hasRole middleware - Found user with vendor role in database:', {
-            email: userByEmail.email,
-            dbRole: userByEmail.role,
-            sessionRole: req.user.role
-          });
-          
-          // Update session with the vendor role
-          req.user.role = 'vendor';
-          return next();
-        }
-      } catch (error) {
-        console.error('Error checking vendor role:', error);
-      }
-    }
-    
-    // Standard role check
     if (roles.length > 0 && !roles.includes(req.user.role)) {
-      return res.status(403).json({ 
-        message: "Insufficient permissions",
-        requiredRoles: roles,
-        currentRole: req.user.role
-      });
+      return res.status(403).json({ message: "Insufficient permissions" });
     }
     
     return next();
