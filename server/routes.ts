@@ -168,6 +168,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         vendorRecord = await storage.createVendor(vendorData);
         
+        // Update user role to 'vendor'
+        await storage.updateUser(req.user.id, { role: 'vendor' });
+        
         // Create a subdomain for the vendor
         if (vendorRecord) {
           const domainData = insertDomainSchema.parse({
@@ -182,15 +185,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Get the updated user with the new role
+      const updatedUserWithRole = await storage.getUser(req.user.id);
+      if (!updatedUserWithRole) {
+        return res.status(404).json({ message: "User not found after update" });
+      }
+      
       // Update session with the new user data
-      req.login(updatedUser, (err) => {
+      req.login(updatedUserWithRole, (err) => {
         if (err) {
           console.error("Failed to update session:", err);
         }
       });
       
       // Don't return the password
-      const { password, ...userWithoutPassword } = updatedUser;
+      const { password, ...userWithoutPassword } = updatedUserWithRole;
       
       return res.status(200).json({
         ...userWithoutPassword,
