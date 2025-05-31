@@ -5,7 +5,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { domainMiddleware } from "./middleware/domainMiddleware";
 import { createServer } from "http";
 import { WebSocketServer } from "ws";
-import cors from "cors";
+import cors from "cors";declare module 'cors';
 
 const app = express();
 
@@ -13,7 +13,7 @@ const app = express();
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? process.env.ALLOWED_ORIGINS?.split(',') 
-    : ['http://localhost:5000', 'http://localhost:3000'],
+    : ['http://localhost:5000', 'http://localhost:3000','http://uv-new-motk.vercel.app' ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -24,6 +24,57 @@ app.use(express.urlencoded({ extended: false }));
 
 // Add domain routing middleware
 app.use(domainMiddleware);
+
+// Add a simple database check endpoint
+app.get('/api/simple-db-check', async (req, res) => {
+  try {
+    console.log('Simple DB Check - Request received');
+    console.log('Simple DB Check - DATABASE_URL:', process.env.DATABASE_URL ? process.env.DATABASE_URL.replace(/:[^:]*@/, ':****@') : 'Not set');
+    
+    // Import database modules directly
+    const { db } = require('./db');
+    const { users } = require('../shared/schema');
+    
+    // Check database connection
+    const dbUsers = await db.select().from(users).limit(5);
+    
+    // Try direct connection to Neon database
+    const { Pool } = require('pg');
+    const neonPool = new Pool({
+      connectionString: 'postgresql://neondb_owner:npg_MgD6I0eNokLv@ep-lucky-rice-a57yzbrw-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require'
+    });
+    
+    const neonResult = await neonPool.query('SELECT id, email, role FROM users LIMIT 5');
+    await neonPool.end();
+    
+    return res.status(200).json({
+      message: 'Database check completed',
+      dbConnection: {
+        connected: true,
+        userCount: dbUsers.length,
+        users: dbUsers.map(u => ({ id: u.id, email: u.email, role: u.role }))
+      },
+      neonConnection: {
+        connected: true,
+        userCount: neonResult.rows.length,
+        users: neonResult.rows
+      },
+      environment: {
+        NODE_ENV: process.env.NODE_ENV,
+        DATABASE_URL: process.env.DATABASE_URL ? 'Set (hidden)' : 'Not set',
+        VERCEL: process.env.VERCEL ? 'true' : 'false',
+        RENDER: process.env.RENDER ? 'true' : 'false'
+      }
+    });
+  } catch (error) {
+    console.error('Simple DB Check - Error:', error);
+    return res.status(500).json({
+      message: 'Database check failed',
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
