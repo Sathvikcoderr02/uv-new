@@ -156,20 +156,50 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Start server
+  // Start server function
   const startServer = (port: number) => {
+    const timestamp = new Date().toISOString();
+    const server = createServer(app);
+    
     server.listen(port, () => {
-      log(`Server running on port ${port}`);
-      log(`WebSocket server available at ws://localhost:${port}/v2`);
-    }).on("error", (err: any) => {
-      if (err.code === "EADDRINUSE") {
-        log(`Port ${port} is in use, trying port ${port + 1}...`);
+      console.log(`\n=== Server Startup [${new Date().toISOString()}] ===`);
+      console.log(`✅ Server is running on port ${port}`);
+      console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`📧 Email verification: ${process.env.SMTP_HOST ? 'Enabled' : 'Disabled'}`);
+      
+      if (process.env.SMTP_HOST) {
+        console.log(`   - SMTP Host: ${process.env.SMTP_HOST}`);
+        console.log(`   - SMTP Port: ${process.env.SMTP_PORT || '587'}`);
+      }
+      
+      console.log(`🔗 Database: ${process.env.DATABASE_URL ? 'Configured' : 'Not configured'}`);
+      if (process.env.DATABASE_URL) {
+        const maskedUrl = process.env.DATABASE_URL.replace(/:([^:]*?)@/, ':****@');
+        console.log(`   - Host: ${maskedUrl.split('@')[1]?.split('/')[0] || 'unknown'}`);
+        console.log(`   - Database: ${maskedUrl.split('/').pop()?.split('?')[0] || 'unknown'}`);
+      }
+      
+      console.log(`🌍 Allowed Origins: ${process.env.ALLOWED_ORIGINS || 'Not set'}`);
+      console.log('===================================');
+      console.log(`[${new Date().toISOString()}] 🚀 Server ready to accept connections`);
+    });
+
+    // Handle server errors
+    server.on('error', (error: NodeJS.ErrnoException) => {
+      const timestamp = new Date().toISOString();
+      console.error(`\n[${timestamp}] ❌ Server error:`, error.message);
+      if (error.code === 'EADDRINUSE') {
+        console.error(`[${timestamp}] ⚠️  Port ${port} is already in use`);
+        console.log(`[${timestamp}] Trying port ${port + 1}...`);
         startServer(port + 1);
       } else {
-        console.error("Server error:", err);
+        process.exit(1);
       }
     });
+
+    return server;
   };
   
+  // Start the server
   startServer(5000);
 })();
