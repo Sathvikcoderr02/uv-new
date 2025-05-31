@@ -5,22 +5,70 @@ import { setupVite, serveStatic, log } from "./vite";
 import { domainMiddleware } from "./middleware/domainMiddleware";
 import { createServer } from "http";
 import { WebSocketServer } from "ws";
-import cors from "cors";
+import cors, { type CorsOptions, type CorsOptionsDelegate } from "cors";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 
 const app = express();
 
-// Enable CORS for all routes
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? process.env.ALLOWED_ORIGINS?.split(',') 
-    : ['http://localhost:5000', 'http://localhost:3000'],
+// Configure CORS with type safety
+const corsOptions: CorsOptions = {
+  origin: (origin, callback) => {
+    const allowedOrigins = process.env.NODE_ENV === 'production' 
+      ? (process.env.ALLOWED_ORIGINS?.split(',') || [])
+      : ['http://localhost:5000', 'http://localhost:3000'];
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+    } else {
+      console.warn(`CORS blocked request from origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+  exposedHeaders: ['Content-Length', 'X-Request-ID']
+} as const;
+
+// Enable CORS for all routes
+app.use(cors(corsOptions));
+
+// Log CORS headers for debugging
+app.use((req, res, next) => {
+  const origin = req.headers.origin || 'no-origin';
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - Origin: ${origin}`);
+  next();
+});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Health check endpoint
+app.get('/health', async (req, res) => {
+  try {
+    // Test database connection
+    const result = await db.execute(sql`SELECT 1 as test`);
+    
+    res.json({
+      status: 'ok',
+      database: 'connected',
+      timestamp: new Date().toISOString(),
+      render: process.env.RENDER === 'true',
+      node_env: process.env.NODE_ENV || 'development'
+    });
+  } catch (error) {
+    console.error('Health check failed:', error);
+    res.status(500).json({
+      status: 'error',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
 // Add domain routing middleware
 app.use(domainMiddleware);
@@ -61,19 +109,19 @@ app.use((req, res, next) => {
   // Create WebSocket server
   const wss = new WebSocketServer({ 
     server,
-    path: "/v2",
-    // Enable CORS for WebSocket
-    verifyClient: (info, callback) => {
-      const origin = info.origin || info.req.headers.origin;
-      const allowedOrigins = process.env.NODE_ENV === 'production'
-        ? process.env.ALLOWED_ORIGINS?.split(',')
-        : ['http://localhost:5000', 'http://localhost:3000'];
-      
-      if (!origin || allowedOrigins?.includes(origin)) {
-        callback(true);
-      } else {
-        callback(false, 403, 'Forbidden');
-      }
+    path: "/v2"
+  });
+
+  // Add CORS verification for WebSocket
+  wss.on('headers', (headers, req) => {
+    const origin = req.headers.origin;
+    const allowedOrigins = process.env.NODE_ENV === 'production'
+      ? process.env.ALLOWED_ORIGINS?.split(',')
+      : ['http://localhost:5000', 'http://localhost:3000'];
+    
+    if (origin && allowedOrigins?.includes(origin)) {
+      headers.push('Access-Control-Allow-Origin', origin);
+      headers.push('Access-Control-Allow-Credentials', 'true');
     }
   });
 
