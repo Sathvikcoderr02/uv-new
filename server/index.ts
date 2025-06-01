@@ -13,8 +13,16 @@ const app = express();
 
 // Initialize the application
 (async () => {
+  console.log('=== Starting server initialization ===');
+  
+  // Log environment
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log('PORT:', process.env.PORT);
+  
   // Test route - should be accessible without any middleware
+  console.log('Registering test route at /test-route');
   app.get('/test-route', (req, res) => {
+    console.log('Test route hit!');
     res.json({ 
       status: 'ok',
       message: 'Test route is working!',
@@ -22,7 +30,15 @@ const app = express();
     });
   });
   
-  console.log('Test route registered at /test-route');
+  // Log all registered routes for debugging
+  console.log('=== Registered Routes ===');
+  app._router.stack.forEach((middleware: any) => {
+    if (middleware.route) {
+      console.log(`${Object.keys(middleware.route.methods).join(', ').toUpperCase()} -> ${middleware.route.path}`);
+    }
+  });
+  console.log('=========================');
+
   // Request logging middleware
   app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
