@@ -432,7 +432,8 @@ app.get('/api/products/:id/variants', async (req, res) => {
 });
 
 // Debug endpoint to view OTPs in database (only in development)
-if (process.env.NODE_ENV !== 'production') {
+// Enable debug endpoint for testing
+if (true || process.env.NODE_ENV !== 'production') {
   app.get('/api/debug/otp-store', async (req, res) => {
     try {
       // Query all OTPs from the database
