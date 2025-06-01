@@ -7,6 +7,9 @@ require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Only start the server if this file is run directly
+const isMainModule = require.main === module;
+
 // Enable CORS with specific options
 const allowedOrigins = [
   'https://uv-new.vercel.app',
@@ -448,8 +451,13 @@ if (process.env.NODE_ENV !== 'production') {
   console.log('Debug endpoint enabled: /api/debug/otp-store');
 }
 
-// Start the server
-app.listen(port, () => {
-  console.log(`API server running on port ${port}`);
-  console.log('Email verification enabled with SMTP server: smtp.hostinger.com');
-});
+// Start the server only if this file is run directly
+if (isMainModule) {
+  app.listen(port, () => {
+    console.log(`API Server is running on port ${port}`);
+    console.log('Email verification enabled with SMTP server: smtp.hostinger.com');
+  });
+}
+
+// Export the app for mounting in the main server
+module.exports = { app };

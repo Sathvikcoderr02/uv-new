@@ -8,6 +8,7 @@ import { WebSocketServer } from "ws";
 import cors from "cors";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
+import path from 'path';
 
 const app = express();
 
@@ -18,6 +19,16 @@ const app = express();
   // Log environment
   console.log('NODE_ENV:', process.env.NODE_ENV);
   console.log('PORT:', process.env.PORT);
+  
+  // Mount API routes from api-server
+  try {
+    const apiServerPath = path.join(__dirname, '../api-server/index.js');
+    const { app: apiApp } = await import(apiServerPath);
+    app.use('/api', apiApp);
+    console.log('API routes mounted at /api');
+  } catch (error) {
+    console.error('Failed to mount API routes:', error);
+  }
   
   // Test route - should be accessible without any middleware
   console.log('Registering test route at /test-route');
