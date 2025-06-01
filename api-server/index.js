@@ -4,7 +4,11 @@ const { Pool } = require('pg');
 const nodemailer = require('nodemailer');
 require('dotenv').config();
 
-// Database connection pool is already defined below, we'll just add the test function here
+// Database connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
 
 // Test database connection
 async function testDbConnection() {
@@ -169,12 +173,6 @@ const otpDb = {
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
   next();
-});
-
-// Database connection
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
 // Middleware
