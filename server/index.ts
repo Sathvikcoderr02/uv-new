@@ -12,8 +12,18 @@ const app = express();
 // Enable CORS for all routes
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? process.env.ALLOWED_ORIGINS?.split(',') 
-    : ['http://localhost:5000', 'http://localhost:3000','http://uv-new-motk.vercel.app' ],
+    ? [
+        ...(process.env.ALLOWED_ORIGINS?.split(',') || []),
+        'https://uv-new.vercel.app'
+      ].filter(Boolean)
+    : [
+        'http://localhost:5000',
+        'http://localhost:3000',
+        'http://uv-new.vercel.app',
+        'https://uv-new.vercel.app',
+        'http://uv-new-motk.vercel.app',
+        'https://uv-new-motk.vercel.app'
+      ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],

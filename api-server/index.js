@@ -9,7 +9,7 @@ const port = process.env.PORT || 3000;
 
 // Enable CORS with specific options
 const corsOptions = {
-  origin: ['https://uv-new-motk.vercel.app', 'http://localhost:3000'],
+  origin: ['https://uv-new.vercel.app', 'http://localhost:3000'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with'],
   credentials: true,
