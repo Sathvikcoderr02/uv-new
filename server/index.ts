@@ -13,6 +13,16 @@ const app = express();
 
 // Initialize the application
 (async () => {
+  // Test route - should be accessible without any middleware
+  app.get('/test-route', (req, res) => {
+    res.json({ 
+      status: 'ok',
+      message: 'Test route is working!',
+      timestamp: new Date().toISOString()
+    });
+  });
+  
+  console.log('Test route registered at /test-route');
   // Request logging middleware
   app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
