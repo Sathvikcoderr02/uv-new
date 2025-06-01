@@ -404,14 +404,22 @@ app.post('/api/auth/verify-otp', async (req, res) => {
     await otpDb.deleteOtp(email);
     console.log('✅ OTP cleaned up successfully');
     
-    // Prepare user data (in a real app, fetch from users table)
-    const userData = {
-      id: 1, // Replace with actual user ID from database
-      email,
-      role: 'user',
-      firstName: 'Test',
-      lastName: 'User'
-    };
+    // Fetch user data from database
+    console.log('\n🔍 Fetching user data from database...');
+    const userResult = await pool.query(
+      'SELECT id, email, first_name as "firstName", last_name as "lastName", role FROM users WHERE email = $1', 
+      [email]
+    );
+    
+    if (!userResult.rows.length) {
+      console.error('❌ User not found in database');
+      return res.status(404).json({
+        success: false,
+        message: 'User not found. Please register first.'
+      });
+    }
+    
+    const userData = userResult.rows[0];
     
     console.log('\n' + '='.repeat(50));
     console.log('👤 USER AUTHENTICATED SUCCESSFULLY');
@@ -419,9 +427,10 @@ app.post('/api/auth/verify-otp', async (req, res) => {
     console.log(`👋 Welcome, ${userData.firstName} ${userData.lastName}`);
     console.log(`📧 Email: ${userData.email}`);
     console.log(`👥 Role: ${userData.role}`);
+    console.log(`🆔 User ID: ${userData.id}`);
     console.log('\n' + '='.repeat(80));
     
-    // Return success response
+    // Return success response with user data
     return res.status(200).json({
       success: true,
       message: 'OTP verified successfully',
