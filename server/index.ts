@@ -6,35 +6,15 @@ import { domainMiddleware } from "./middleware/domainMiddleware";
 import { createServer } from "http";
 import { WebSocketServer } from "ws";
 import cors from "cors";
-import { db, pool } from "./db";
+import { db } from "./db";
 import { sql } from "drizzle-orm";
-import { Pool } from 'pg';
 
 const app = express();
 
-// Debug middleware to log all requests
+// Request logging middleware
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
   next();
-});
-
-// Debug route to list all registered routes
-app.get('/debug-routes', (req, res) => {
-  const routes = [];
-  app._router.stack.forEach((middleware) => {
-    if (middleware.route) {
-      // Routes registered directly on the app
-      routes.push(`${Object.keys(middleware.route.methods).join(', ')} -> ${middleware.route.path}`);
-    } else if (middleware.name === 'router') {
-      // Routes added as router
-      middleware.handle.stack.forEach((handler) => {
-        if (handler.route) {
-          routes.push(`${Object.keys(handler.route.methods).join(', ')} -> ${handler.route.path}`);
-        }
-      });
-    }
-  });
-  res.json({ routes });
 });
 
 // Enable CORS for all routes
@@ -57,125 +37,14 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
+// Parse JSON and URL-encoded bodies
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-
-// Add a simple database check endpoint - must be before domain middleware
-app.get('/api/simple-db-check', async (req, res) => {
-  const startTime = Date.now();
-  const requestId = Math.random().toString(36).substring(2, 9);
-  
-  console.log(`[${requestId}] Simple DB Check - Request received`);
-  
-  try {
-    // Mask sensitive information in the database URL for logging
-    const maskedDbUrl = process.env.DATABASE_URL 
-      ? process.env.DATABASE_URL.replace(/(?<=:)[^:]+(?=@)/, '****')
-      : 'Not set';
-      
-    console.log(`[${requestId}] Database URL: ${maskedDbUrl}`);
-    
-    if (!process.env.DATABASE_URL) {
-      console.error(`[${requestId}] Error: DATABASE_URL not set`);
-      return res.status(500).json({
-        requestId,
-        status: 'error',
-        error: 'DATABASE_URL not configured',
-        message: 'Database connection string is not configured',
-        timestamp: new Date().toISOString(),
-        duration: Date.now() - startTime
-      });
-    }
-
-    // Import database modules directly
-    const { db, pool } = require('./db');
-    const { users } = require('../shared/schema');
-    
-    try {
-      // Check database connection with a simple query
-      const client = await pool.connect();
-      const dbUsers = await db.select().from(users).limit(5);
-      client.release();
-      
-      return res.status(200).json({
-        requestId,
-        status: 'success',
-        message: 'Database connection successful',
-        database: {
-          status: 'connected',
-          responseTime: `${totalDuration}ms`,
-          queryTime: `${queryDuration}ms`,
-          ...stats.rows[0],
-          db_size: stats.rows[0]?.db_size 
-            ? `${Math.round(stats.rows[0].db_size / 1024 / 1024)}MB` 
-            : 'unknown'
-        },
-        timestamp: new Date().toISOString(),
-        environment: {
-          node_env: process.env.NODE_ENV,
-          platform: process.platform,
-          memory: {
-            rss: `${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB`,
-            heapTotal: `${Math.round(process.memoryUsage().heapTotal / 1024 / 1024)}MB`,
-            heapUsed: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`,
-          },
-          versions: process.versions
-        }
-      });
-    } catch (error: any) {
-      const errorDuration = Date.now() - startTime;
-      console.error(`[${requestId}] Database check failed after ${errorDuration}ms:`, {
-        message: error.message,
-        code: error.code,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      });
-      
-      return res.status(500).json({
-        requestId,
-        status: 'error',
-        error: 'Database connection failed',
-        message: error.message,
-        code: error.code,
-        duration: errorDuration,
-        timestamp: new Date().toISOString(),
-        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      });
-    }
-  } catch (error: any) {
-    console.error('Simple DB Check - Error:', error);
-    return res.status(500).json({
-      message: 'Database check failed',
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
-  }
-});
-
-// Direct database test endpoint
-app.get('/test-db', async (req, res) => {
-  const client = await pool.connect();
-  try {
-    const result = await client.query('SELECT 1 as test');
-    res.json({ 
-      status: 'success',
-      database: 'connected',
-      testQuery: result.rows[0]
-    });
-  } catch (error: any) {
-    console.error('Database test error:', error);
-    res.status(500).json({
-      status: 'error',
-      error: error.message,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
-  } finally {
-    client.release();
-  }
-});
 
 // Add domain routing middleware - must be after API routes
 app.use(domainMiddleware);
 
+// Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -206,6 +75,7 @@ app.use((req, res, next) => {
   next();
 });
 
+// Initialize the application
 (async () => {
   const server = await registerRoutes(app);
 

@@ -51,6 +51,72 @@ function handleValidationError(err: unknown, res: Response) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Debug middleware to log all requests
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+    next();
+  });
+
+  // Debug route to list all registered routes
+  app.get('/debug-routes', (req, res) => {
+    const routes: string[] = [];
+    
+    function processMiddleware(middleware: any, prefix = '') {
+      if (middleware.route) {
+        // Routes registered directly on the app
+        routes.push(`${Object.keys(middleware.route.methods).join(', ').toUpperCase()} -> ${prefix}${middleware.route.path}`);
+      } else if (middleware.name === 'router' || middleware.name === 'router') {
+        // Router middleware
+        middleware.handle.stack.forEach((handler: any) => {
+          processMiddleware(handler, prefix);
+        });
+      } else if (middleware.handle && middleware.handle.stack) {
+        // Sub-router
+        middleware.handle.stack.forEach((handler: any) => {
+          processMiddleware(handler, prefix);
+        });
+      }
+    }
+
+    app._router.stack.forEach((middleware: any) => {
+      processMiddleware(middleware);
+    });
+
+    res.json({ 
+      status: 'success',
+      routes: routes.sort(),
+      timestamp: new Date().toISOString()
+    });
+  });
+  
+  // Simple health check endpoint
+  app.get('/health', (req, res) => {
+    res.json({ 
+      status: 'ok', 
+      timestamp: new Date().toISOString() 
+    });
+  });
+  
+  // Simple database check endpoint
+  app.get('/api/simple-db-check', async (req, res) => {
+    try {
+      const result = await db.execute(sql`SELECT 1 as test`);
+      res.json({ 
+        status: 'success',
+        database: 'connected',
+        testQuery: result.rows[0]
+      });
+    } catch (error: any) {
+      console.error('Database check error:', error);
+      res.status(500).json({
+        status: 'error',
+        error: error.message,
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
+  });
+  
+  console.log('Debug routes registered');
   // Add a database check endpoint
   app.get("/api/db-check", async (req, res) => {
     try {
