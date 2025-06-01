@@ -11,73 +11,74 @@ import { sql } from "drizzle-orm";
 
 const app = express();
 
-// Request logging middleware
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
-  next();
-});
-
-// Enable CORS for all routes
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? [
-        ...(process.env.ALLOWED_ORIGINS?.split(',') || []),
-        'https://uv-new.vercel.app'
-      ].filter(Boolean)
-    : [
-        'http://localhost:5000',
-        'http://localhost:3000',
-        'http://uv-new.vercel.app',
-        'https://uv-new.vercel.app',
-        'http://uv-new-motk.vercel.app',
-        'https://uv-new-motk.vercel.app'
-      ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
-
-// Parse JSON and URL-encoded bodies
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-
-// Add domain routing middleware - must be after API routes
-app.use(domainMiddleware);
-
-// Request logging middleware
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
-    }
-  });
-
-  next();
-});
-
 // Initialize the application
 (async () => {
+  // Request logging middleware
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+    next();
+  });
+
+  // Enable CORS for all routes
+  app.use(cors({
+    origin: process.env.NODE_ENV === 'production' 
+      ? [
+          ...(process.env.ALLOWED_ORIGINS?.split(',') || []),
+          'https://uv-new.vercel.app'
+        ].filter(Boolean)
+      : [
+          'http://localhost:5000',
+          'http://localhost:3000',
+          'http://uv-new.vercel.app',
+          'https://uv-new.vercel.app',
+          'http://uv-new-motk.vercel.app',
+          'https://uv-new-motk.vercel.app'
+        ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  }));
+
+  // Parse JSON and URL-encoded bodies
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: false }));
+
+  // Request logging middleware
+  app.use((req, res, next) => {
+    const start = Date.now();
+    const path = req.path;
+    let capturedJsonResponse: Record<string, any> | undefined = undefined;
+
+    const originalResJson = res.json;
+    res.json = function (bodyJson, ...args) {
+      capturedJsonResponse = bodyJson;
+      return originalResJson.apply(res, [bodyJson, ...args]);
+    };
+
+    res.on("finish", () => {
+      const duration = Date.now() - start;
+      if (path.startsWith("/api")) {
+        let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+        if (capturedJsonResponse) {
+          logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        }
+
+        if (logLine.length > 80) {
+          logLine = logLine.slice(0, 79) + "…";
+        }
+
+        log(logLine);
+      }
+    });
+
+    next();
+  });
+
+  // Register all routes (API, debug, etc.)
   const server = await registerRoutes(app);
+
+  // Add domain routing middleware - must be after API routes
+  app.use(domainMiddleware);
 
   // Create WebSocket server
   const wss = new WebSocketServer({ 
