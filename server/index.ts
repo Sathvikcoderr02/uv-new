@@ -126,6 +126,28 @@ app.get('/api/simple-db-check', async (req, res) => {
   }
 });
 
+// Direct database test endpoint
+app.get('/test-db', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const result = await client.query('SELECT 1 as test');
+    res.json({ 
+      status: 'success',
+      database: 'connected',
+      testQuery: result.rows[0]
+    });
+  } catch (error: any) {
+    console.error('Database test error:', error);
+    res.status(500).json({
+      status: 'error',
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  } finally {
+    client.release();
+  }
+});
+
 // Add domain routing middleware - must be after API routes
 app.use(domainMiddleware);
 
