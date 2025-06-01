@@ -6,8 +6,9 @@ import { domainMiddleware } from "./middleware/domainMiddleware";
 import { createServer } from "http";
 import { WebSocketServer } from "ws";
 import cors from "cors";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { sql } from "drizzle-orm";
+import { Pool } from 'pg';
 
 const app = express();
 
@@ -36,18 +37,28 @@ app.use(express.urlencoded({ extended: false }));
 
 // Add a simple database check endpoint - must be before domain middleware
 app.get('/api/simple-db-check', async (req, res) => {
+  const startTime = Date.now();
+  const requestId = Math.random().toString(36).substring(2, 9);
+  
+  console.log(`[${requestId}] Simple DB Check - Request received`);
+  
   try {
-    console.log('Simple DB Check - Request received');
+    // Mask sensitive information in the database URL for logging
     const maskedDbUrl = process.env.DATABASE_URL 
-      ? process.env.DATABASE_URL.replace(/:[^:]*@/, ':****@')
+      ? process.env.DATABASE_URL.replace(/(?<=:)[^:]+(?=@)/, '****')
       : 'Not set';
-    console.log('Simple DB Check - DATABASE_URL:', maskedDbUrl);
+      
+    console.log(`[${requestId}] Database URL: ${maskedDbUrl}`);
     
     if (!process.env.DATABASE_URL) {
+      console.error(`[${requestId}] Error: DATABASE_URL not set`);
       return res.status(500).json({
-        error: 'DATABASE_URL is not set in environment variables',
-        message: 'Please check your server configuration',
-        timestamp: new Date().toISOString()
+        requestId,
+        status: 'error',
+        error: 'DATABASE_URL not configured',
+        message: 'Database connection string is not configured',
+        timestamp: new Date().toISOString(),
+        duration: Date.now() - startTime
       });
     }
 
@@ -62,33 +73,47 @@ app.get('/api/simple-db-check', async (req, res) => {
       client.release();
       
       return res.status(200).json({
-        message: 'Database check completed successfully',
+        requestId,
+        status: 'success',
+        message: 'Database connection successful',
         database: {
-          connected: true,
-          url: maskedDbUrl,
-          userCount: dbUsers.length,
-          users: dbUsers.map((u: any) => ({ 
-            id: u.id, 
-            email: u.email, 
-            role: u.role,
-            createdAt: u.createdAt
-          }))
+          status: 'connected',
+          responseTime: `${totalDuration}ms`,
+          queryTime: `${queryDuration}ms`,
+          ...stats.rows[0],
+          db_size: stats.rows[0]?.db_size 
+            ? `${Math.round(stats.rows[0].db_size / 1024 / 1024)}MB` 
+            : 'unknown'
         },
         timestamp: new Date().toISOString(),
         environment: {
-          NODE_ENV: process.env.NODE_ENV,
-          DATABASE_URL: process.env.DATABASE_URL ? 'Set (hidden)' : 'Not set',
-          VERCEL: process.env.VERCEL ? 'true' : 'false',
-          RENDER: process.env.RENDER ? 'true' : 'false'
+          node_env: process.env.NODE_ENV,
+          platform: process.platform,
+          memory: {
+            rss: `${Math.round(process.memoryUsage().rss / 1024 / 1024)}MB`,
+            heapTotal: `${Math.round(process.memoryUsage().heapTotal / 1024 / 1024)}MB`,
+            heapUsed: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`,
+          },
+          versions: process.versions
         }
       });
     } catch (error: any) {
-      console.error('Database check failed:', error);
+      const errorDuration = Date.now() - startTime;
+      console.error(`[${requestId}] Database check failed after ${errorDuration}ms:`, {
+        message: error.message,
+        code: error.code,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+      
       return res.status(500).json({
+        requestId,
+        status: 'error',
         error: 'Database connection failed',
-        message: error?.message || 'Unknown error',
-        details: process.env.NODE_ENV === 'development' ? error?.stack : undefined,
-        timestamp: new Date().toISOString()
+        message: error.message,
+        code: error.code,
+        duration: errorDuration,
+        timestamp: new Date().toISOString(),
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
   } catch (error: any) {
