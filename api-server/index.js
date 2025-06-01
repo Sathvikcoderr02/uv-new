@@ -8,14 +8,41 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // Enable CORS with specific options
+const allowedOrigins = [
+  'https://uv-new.vercel.app',
+  'https://uv-new-motk.vercel.app',
+  'https://uv-new-1.onrender.com',
+  'http://localhost:3000',
+  'http://localhost:5000'
+];
+
 const corsOptions = {
-  origin: ['https://uv-new.vercel.app', 'http://localhost:3000'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = `The CORS policy for this site does not allow access from the specified origin: ${origin}`;
+      console.warn(msg);
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with'],
   credentials: true,
   preflightContinue: false,
   optionsSuccessStatus: 204
 };
+
+// Log CORS errors
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && !allowedOrigins.includes(origin)) {
+    console.warn(`Blocked request from origin: ${origin}`);
+  }
+  next();
+});
 
 // Apply CORS middleware
 app.use(cors(corsOptions));
