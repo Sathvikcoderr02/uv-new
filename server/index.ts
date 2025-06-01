@@ -5,7 +5,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { domainMiddleware } from "./middleware/domainMiddleware";
 import { createServer } from "http";
 import { WebSocketServer } from "ws";
-import cors from "cors";declare module 'cors';
+import cors from "cors";
 
 const app = express();
 
@@ -29,44 +29,60 @@ app.use(domainMiddleware);
 app.get('/api/simple-db-check', async (req, res) => {
   try {
     console.log('Simple DB Check - Request received');
-    console.log('Simple DB Check - DATABASE_URL:', process.env.DATABASE_URL ? process.env.DATABASE_URL.replace(/:[^:]*@/, ':****@') : 'Not set');
+    const maskedDbUrl = process.env.DATABASE_URL 
+      ? process.env.DATABASE_URL.replace(/:[^:]*@/, ':****@')
+      : 'Not set';
+    console.log('Simple DB Check - DATABASE_URL:', maskedDbUrl);
     
+    if (!process.env.DATABASE_URL) {
+      return res.status(500).json({
+        error: 'DATABASE_URL is not set in environment variables',
+        message: 'Please check your server configuration',
+        timestamp: new Date().toISOString()
+      });
+    }
+
     // Import database modules directly
-    const { db } = require('./db');
+    const { db, pool } = require('./db');
     const { users } = require('../shared/schema');
     
-    // Check database connection
-    const dbUsers = await db.select().from(users).limit(5);
-    
-    // Try direct connection to Neon database
-    const { Pool } = require('pg');
-    const neonPool = new Pool({
-      connectionString: 'postgresql://neondb_owner:npg_MgD6I0eNokLv@ep-lucky-rice-a57yzbrw-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require'
-    });
-    
-    const neonResult = await neonPool.query('SELECT id, email, role FROM users LIMIT 5');
-    await neonPool.end();
-    
-    return res.status(200).json({
-      message: 'Database check completed',
-      dbConnection: {
-        connected: true,
-        userCount: dbUsers.length,
-        users: dbUsers.map(u => ({ id: u.id, email: u.email, role: u.role }))
-      },
-      neonConnection: {
-        connected: true,
-        userCount: neonResult.rows.length,
-        users: neonResult.rows
-      },
-      environment: {
-        NODE_ENV: process.env.NODE_ENV,
-        DATABASE_URL: process.env.DATABASE_URL ? 'Set (hidden)' : 'Not set',
-        VERCEL: process.env.VERCEL ? 'true' : 'false',
-        RENDER: process.env.RENDER ? 'true' : 'false'
-      }
-    });
-  } catch (error) {
+    try {
+      // Check database connection with a simple query
+      const client = await pool.connect();
+      const dbUsers = await db.select().from(users).limit(5);
+      client.release();
+      
+      return res.status(200).json({
+        message: 'Database check completed successfully',
+        database: {
+          connected: true,
+          url: maskedDbUrl,
+          userCount: dbUsers.length,
+          users: dbUsers.map((u: any) => ({ 
+            id: u.id, 
+            email: u.email, 
+            role: u.role,
+            createdAt: u.createdAt
+          }))
+        },
+        timestamp: new Date().toISOString(),
+        environment: {
+          NODE_ENV: process.env.NODE_ENV,
+          DATABASE_URL: process.env.DATABASE_URL ? 'Set (hidden)' : 'Not set',
+          VERCEL: process.env.VERCEL ? 'true' : 'false',
+          RENDER: process.env.RENDER ? 'true' : 'false'
+        }
+      });
+    } catch (error: any) {
+      console.error('Database check failed:', error);
+      return res.status(500).json({
+        error: 'Database connection failed',
+        message: error?.message || 'Unknown error',
+        details: process.env.NODE_ENV === 'development' ? error?.stack : undefined,
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (error: any) {
     console.error('Simple DB Check - Error:', error);
     return res.status(500).json({
       message: 'Database check failed',
