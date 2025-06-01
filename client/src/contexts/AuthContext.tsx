@@ -120,14 +120,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email, 
         otp: normalizedOtp 
       });
+      
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.message || 'Invalid verification code');
       }
-      return await res.json();
+      
+      const data = await res.json();
+      console.log('OTP verification response:', data);
+      
+      if (!data.success || !data.user) {
+        throw new Error(data.message || 'Failed to verify OTP');
+      }
+      
+      return data.user;
     },
-    onSuccess: (data) => {
-      queryClient.setQueryData(['/api/auth/session'], data);
+    onSuccess: (userData) => {
+      console.log('Setting user data in session:', userData);
+      queryClient.setQueryData(['/api/auth/session'], userData);
       toast({
         title: 'Login Successful',
         description: 'You are now logged in.',
