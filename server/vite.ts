@@ -23,7 +23,7 @@ export async function setupVite(app: Express, server: Server) {
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
-    allowedHosts: true,
+    host: true, // Allow all hosts in development
   };
 
   const vite = await createViteServer({
@@ -68,7 +68,7 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "public");
+  const distPath = path.resolve(import.meta.dirname, "..", "dist");
 
   if (!fs.existsSync(distPath)) {
     throw new Error(
@@ -76,10 +76,21 @@ export function serveStatic(app: Express) {
     );
   }
 
-  app.use(express.static(distPath));
+  // Only serve static files for non-API routes
+  app.use((req, res, next) => {
+    if (!req.path.startsWith('/api/')) {
+      express.static(distPath)(req, res, next);
+    } else {
+      next();
+    }
+  });
 
-  // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+  // Fall through to index.html for non-API routes if the file doesn't exist
+  app.get('*', (req, res, next) => {
+    if (!req.path.startsWith('/api/')) {
+      res.sendFile(path.resolve(distPath, 'index.html'));
+    } else {
+      next();
+    }
   });
 }
