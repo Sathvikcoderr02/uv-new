@@ -12,6 +12,31 @@ import { Pool } from 'pg';
 
 const app = express();
 
+// Debug middleware to log all requests
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  next();
+});
+
+// Debug route to list all registered routes
+app.get('/debug-routes', (req, res) => {
+  const routes = [];
+  app._router.stack.forEach((middleware) => {
+    if (middleware.route) {
+      // Routes registered directly on the app
+      routes.push(`${Object.keys(middleware.route.methods).join(', ')} -> ${middleware.route.path}`);
+    } else if (middleware.name === 'router') {
+      // Routes added as router
+      middleware.handle.stack.forEach((handler) => {
+        if (handler.route) {
+          routes.push(`${Object.keys(handler.route.methods).join(', ')} -> ${handler.route.path}`);
+        }
+      });
+    }
+  });
+  res.json({ routes });
+});
+
 // Enable CORS for all routes
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
