@@ -6,6 +6,8 @@ import { domainMiddleware } from "./middleware/domainMiddleware";
 import { createServer } from "http";
 import { WebSocketServer } from "ws";
 import cors from "cors";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 
 const app = express();
 
@@ -185,20 +187,87 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
+  // Function to test database connection
+  async function testDatabaseConnection() {
+    try {
+      console.log('Testing database connection...');
+      const startTime = Date.now();
+      const result = await db.execute(sql`SELECT 1 as test`);
+      const duration = Date.now() - startTime;
+      
+      console.log('✅ Database connection successful!');
+      console.log(`   Query executed in ${duration}ms`);
+      console.log(`   Database URL: ${process.env.DATABASE_URL ? 'Set (hidden for security)' : 'Not set'}`);
+      
+      // Log database version
+      try {
+        const dbVersion = await db.execute(sql`SELECT version()`);
+        console.log(`   Database version: ${dbVersion.rows[0]?.version || 'Unknown'}`);
+      } catch (versionError) {
+        console.log('   Could not retrieve database version');
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('❌ Database connection failed!');
+      console.error('   Error:', error instanceof Error ? error.message : 'Unknown error');
+      console.log('   DATABASE_URL:', process.env.DATABASE_URL ? 'Set (hidden for security)' : 'Not set');
+      return false;
+    }
+  }
+
   // Start server
-  const startServer = (port: number) => {
+  const startServer = async (port: number) => {
+    const server = createServer(app);
+    
+    // Test database connection before starting server
+    const dbConnected = await testDatabaseConnection();
+    
+    // Log email configuration
+    if (process.env.EMAIL_HOST) {
+      console.log(`📧 Email verification enabled with SMTP server: ${process.env.EMAIL_HOST}`);
+    } else {
+      console.warn('⚠️  Email verification is DISABLED - EMAIL_HOST not set');
+    }
+    
+    // Log storage configuration
+    console.log(`💾 Storage type: ${process.env.STORAGE_TYPE || 'local'}`);
+    
+    // Log environment
+    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🚀 Server starting on port ${port}...`);
+    
     server.listen(port, () => {
-      log(`Server running on port ${port}`);
-      log(`WebSocket server available at ws://localhost:${port}/v2`);
-    }).on("error", (err: any) => {
-      if (err.code === "EADDRINUSE") {
-        log(`Port ${port} is in use, trying port ${port + 1}...`);
-        startServer(port + 1);
-      } else {
-        console.error("Server error:", err);
+      console.log(`✅ Server is running on port ${port}`);
+      console.log(`   Current time: ${new Date().toISOString()}`);
+      console.log(`   Node.js version: ${process.version}`);
+      console.log(`   Platform: ${process.platform} ${process.arch}`);
+      console.log(`   Memory usage: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`);
+      
+      if (!dbConnected) {
+        console.warn('⚠️  WARNING: Server started WITHOUT database connection!');
       }
     });
+    
+    // Handle unhandled promise rejections
+    process.on('unhandledRejection', (reason, promise) => {
+      console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    });
+    
+    // Handle uncaught exceptions
+    process.on('uncaughtException', (error) => {
+      console.error('Uncaught Exception:', error);
+      // Don't exit immediately, give time to log the error
+      setTimeout(() => process.exit(1), 1000);
+    });
+    
+    return server;
   };
-  
-  startServer(5000);
+
+  // Start the server
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
+  startServer(PORT).catch(error => {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
+  });
 })();
