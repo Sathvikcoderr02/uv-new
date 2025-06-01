@@ -29,7 +29,7 @@ export default defineConfig(async () => {
     root: path.resolve(import.meta.dirname, "client"),
     publicDir: path.resolve(import.meta.dirname, "client/public"),
     build: {
-      outDir: path.resolve(import.meta.dirname, "dist/client"),
+      outDir: path.resolve(import.meta.dirname, "dist"),
       emptyOutDir: true,
       rollupOptions: {
         input: {
