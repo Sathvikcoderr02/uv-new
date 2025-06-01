@@ -88,12 +88,28 @@ const app = express();
     verifyClient: (info, callback) => {
       const origin = info.origin || info.req.headers.origin;
       const allowedOrigins = process.env.NODE_ENV === 'production'
-        ? process.env.ALLOWED_ORIGINS?.split(',')
-        : ['http://localhost:5000', 'http://localhost:3000'];
+        ? [
+            ...(process.env.ALLOWED_ORIGINS?.split(',') || []),
+            'https://uv-new.vercel.app',
+            'https://uv-new-motk.vercel.app',
+            'https://uv-new-1.onrender.com'
+          ].filter(Boolean)
+        : [
+            'http://localhost:5000',
+            'http://localhost:3000',
+            'http://uv-new.vercel.app',
+            'https://uv-new.vercel.app',
+            'http://uv-new-motk.vercel.app',
+            'https://uv-new-motk.vercel.app',
+            'http://uv-new-1.onrender.com',
+            'https://uv-new-1.onrender.com'
+          ];
       
-      if (!origin || allowedOrigins?.includes(origin)) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        console.log(`WebSocket connection allowed from: ${origin}`);
         callback(true);
       } else {
+        console.warn(`WebSocket connection rejected from: ${origin}`);
         callback(false, 403, 'Forbidden');
       }
     }
