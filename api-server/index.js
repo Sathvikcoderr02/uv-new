@@ -4,6 +4,28 @@ const { Pool } = require('pg');
 const nodemailer = require('nodemailer');
 require('dotenv').config();
 
+// Database connection pool is already defined below, we'll just add the test function here
+
+// Test database connection
+async function testDbConnection() {
+  try {
+    const client = await pool.connect();
+    console.log('Successfully connected to the database');
+    client.release();
+    return true;
+  } catch (error) {
+    console.error('Database connection error:', error);
+    return false;
+  }
+}
+
+// Test the database connection on startup
+testDbConnection().then(connected => {
+  if (!connected) {
+    console.error('Failed to connect to the database. Check your DATABASE_URL and database settings.');
+  }
+});
+
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -152,18 +174,12 @@ app.use((req, res, next) => {
 // Database connection
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
 // Middleware
-app.use(cors({
-  origin: ['https://uv-new-motk.vercel.app', 'http://localhost:5000', 'http://localhost:3000'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
-}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Add pre-flight OPTIONS handling
 app.options('*', cors());
