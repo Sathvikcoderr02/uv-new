@@ -22,7 +22,10 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Add a simple database check endpoint - register this before other middleware
+// Add domain routing middleware
+app.use(domainMiddleware);
+
+// Add a simple database check endpoint
 app.get('/api/simple-db-check', async (req, res) => {
   try {
     console.log('Simple DB Check - Request received');
@@ -88,9 +91,6 @@ app.get('/api/simple-db-check', async (req, res) => {
     });
   }
 });
-
-// Add domain routing middleware after our API routes
-app.use(domainMiddleware);
 
 app.use((req, res, next) => {
   const start = Date.now();
