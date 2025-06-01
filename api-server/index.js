@@ -28,8 +28,6 @@ testDbConnection().then(connected => {
   if (!connected) {
     console.error('Failed to connect to the database. Check your DATABASE_URL and database settings.');
   }
-}).catch(error => {
-  console.error('Error in database connection test:', error);
 });
 
 const app = express();
@@ -303,84 +301,127 @@ app.post('/api/auth/request-otp', async (req, res) => {
       message: 'Failed to send OTP',
       error: error.message
     });
+  }
+});
+
+// OTP verification endpoint
 app.post('/api/auth/verify-otp', async (req, res) => {
-  console.log('==============================================');
-  console.log('[DEBUG] Verify OTP request received:', JSON.stringify(req.body, null, 2));
-  
-  const { email, otp } = req.body;
-  
-  // Input validation
-  if (!email) {
-    const error = 'Email is required';
-    console.error(`[ERROR] ${error}`);
-    return res.status(400).json({ success: false, message: error });
-  }
-  
-  if (!otp) {
-    const error = 'OTP is required';
-    console.error(`[ERROR] ${error}`);
-    return res.status(400).json({ success: false, message: error });
-  }
-  
-  // Normalize OTP (remove spaces, convert to string)
-  const normalizedOtp = String(otp).replace(/\s+/g, '').trim();
+  // Log the incoming request with timestamp
+  const requestTime = new Date().toISOString();
+  console.log('\n' + '='.repeat(80));
+  console.log(`[${requestTime}] OTP Verification Request Received`);
+  console.log('='.repeat(80));
+  console.log('Request Body:', JSON.stringify(req.body, null, 2));
   
   try {
+    const { email, otp } = req.body;
+    
+    // Input validation
+    if (!email) {
+      const error = 'Email is required';
+      console.error(`[ERROR] ${error}`);
+      return res.status(400).json({ 
+        success: false, 
+        message: error 
+      });
+    }
+    
+    if (!otp) {
+      const error = 'OTP is required';
+      console.error(`[ERROR] ${error}`);
+      return res.status(400).json({ 
+        success: false, 
+        message: error 
+      });
+    }
+    
+    // Normalize the input OTP
+    const normalizedOtp = String(otp).replace(/\s+/g, '').trim();
+    
+    console.log('\n' + '='.repeat(50));
+    console.log('🔍 OTP VERIFICATION PROCESS');
+    console.log('='.repeat(50));
+    console.log(`📧 Email: ${email}`);
+    console.log(`🔑 OTP Received: "${otp}" (Normalized: "${normalizedOtp}")`);
+    
     // 1. Look up OTP in database
-    console.log(`[DEBUG] Looking up OTP for email: ${email}`);
+    console.log('\n🔎 Looking up OTP in database...');
     const storedOtp = await otpDb.getOtp(email);
     
     if (!storedOtp) {
-      const error = 'No OTP found for email';
-      console.error(`[ERROR] ${error}:`, email);
-      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+      const error = 'No active OTP found for this email';
+      console.error(`❌ ${error}`);
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid or expired OTP' 
+      });
     }
     
-    // 2. Log OTP comparison details
+    // 2. Prepare OTP data for comparison
     const normalizedStoredOtp = String(storedOtp.otp).replace(/\s+/g, '').trim();
+    const isOtpMatch = normalizedOtp === normalizedStoredOtp;
+    const isOtpExpired = new Date() > new Date(storedOtp.expires);
     
-    console.log('==============================================');
-    console.log(`🔍 OTP VERIFICATION for ${email}:`);
-    console.log(`   User entered: "${normalizedOtp}"`);
-    console.log(`   Stored in DB: "${normalizedStoredOtp}"`);
-    console.log(`   Expires at: ${storedOtp.expires}`);
-    console.log(`   Current time: ${new Date().toISOString()}`);
-    console.log('==============================================');
+    // 3. Log verification details
+    console.log('\n' + '='.repeat(50));
+    console.log('🔍 OTP VERIFICATION DETAILS');
+    console.log('='.repeat(50));
+    console.log(`📧 Email: ${email}`);
+    console.log(`🔑 Entered OTP: "${normalizedOtp}"`);
+    console.log(`🔐 Stored OTP: "${normalizedStoredOtp}"`);
+    console.log(`✅ OTP Match: ${isOtpMatch ? 'YES' : 'NO'}`);
+    console.log(`⏰ Expires At: ${new Date(storedOtp.expires).toISOString()}`);
+    console.log(`⏱️  Current Time: ${new Date().toISOString()}`);
+    console.log(`❌ Expired: ${isOtpExpired ? 'YES' : 'NO'}`);
     
-    // 3. Check if OTP is expired
-    if (new Date(storedOtp.expires) < new Date()) {
+    // 4. Check if OTP is expired
+    if (isOtpExpired) {
       const error = 'OTP has expired';
-      console.error(`[ERROR] ${error}`);
+      console.error(`❌ ${error}`);
+      // Clean up expired OTP
       await otpDb.deleteOtp(email);
-      return res.status(400).json({ success: false, message: error });
+      return res.status(400).json({ 
+        success: false, 
+        message: error 
+      });
     }
     
-    // 4. Verify OTP matches
-    if (normalizedOtp !== normalizedStoredOtp) {
+    // 5. Verify OTP matches
+    if (!isOtpMatch) {
       const error = 'OTP does not match';
-      console.error(`[ERROR] ${error}`);
-      return res.status(400).json({ success: false, message: 'Invalid OTP' });
+      console.error(`❌ ${error}`);
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid OTP' 
+      });
     }
     
-    // 5. OTP is valid - proceed with login
-    console.log(`[SUCCESS] OTP verified for email: ${email}`);
+    // 6. OTP is valid - proceed with login
+    console.log('\n' + '✅ OTP VERIFICATION SUCCESSFUL');
     
     // Delete the used OTP
-    console.log(`[DEBUG] Deleting used OTP for email: ${email}`);
+    console.log('\n🧹 Cleaning up used OTP...');
     await otpDb.deleteOtp(email);
+    console.log('✅ OTP cleaned up successfully');
     
-    // Return user data (in a real app, you'd generate a JWT token here)
+    // Prepare user data (in a real app, fetch from users table)
     const userData = {
-      id: 1, // Replace with actual user ID from your database
+      id: 1, // Replace with actual user ID from database
       email,
       role: 'user',
       firstName: 'Test',
       lastName: 'User'
     };
     
-    console.log('[SUCCESS] User authenticated successfully:', JSON.stringify(userData, null, 2));
-    console.log('==============================================');
+    console.log('\n' + '='.repeat(50));
+    console.log('👤 USER AUTHENTICATED SUCCESSFULLY');
+    console.log('='.repeat(50));
+    console.log(`👋 Welcome, ${userData.firstName} ${userData.lastName}`);
+    console.log(`📧 Email: ${userData.email}`);
+    console.log(`👥 Role: ${userData.role}`);
+    console.log('\n' + '='.repeat(80));
     
+    // Return success response
     return res.status(200).json({
       success: true,
       message: 'OTP verified successfully',
@@ -388,11 +429,13 @@ app.post('/api/auth/verify-otp', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('[ERROR] Error in OTP verification:', error);
+    console.error('\n❌ ERROR IN OTP VERIFICATION:');
+    console.error(error);
+    
     return res.status(500).json({ 
       success: false, 
-      message: 'Internal server error',
-      error: error.message 
+      message: 'An error occurred during OTP verification',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -433,56 +476,39 @@ app.get('/api/products/:id/variants', async (req, res) => {
 });
 
 // Debug endpoint to view OTPs in database (only in development)
-// Enable debug endpoints in non-production or when explicitly enabled
-if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_DEBUG === 'true') {
-  console.log('Debug endpoints are enabled');
-  
-  // Endpoint to view all OTPs in the database
+// Enable debug endpoint for testing
+if (true || process.env.NODE_ENV !== 'production') {
   app.get('/api/debug/otp-store', async (req, res) => {
     try {
-      console.log('[DEBUG] Fetching all OTPs from database');
-      
       // Query all OTPs from the database
       const result = await pool.query(
-        'SELECT * FROM otps ORDER BY created_at DESC'
+        'SELECT email, otp, expires, created_at FROM otps ORDER BY created_at DESC'
       );
       
       const otpData = {};
-      const now = new Date();
       
       // Format OTP data for display
       result.rows.forEach(row => {
-        const expires = new Date(row.expires);
         otpData[row.email] = {
           otp: row.otp,
-          expires: expires.toISOString(),
+          expires: new Date(row.expires).toISOString(),
           created_at: new Date(row.created_at).toISOString(),
-          valid: now < expires,
-          expires_in_seconds: Math.max(0, Math.round((expires - now) / 1000))
+          valid: new Date() < new Date(row.expires)
         };
       });
       
-      console.log(`[DEBUG] Found ${result.rows.length} OTPs in database`);
-      
+      console.log('Current OTPs in database:', otpData);
       return res.json({
-        success: true,
         count: result.rows.length,
-        otps: otpData,
-        current_time: now.toISOString()
+        otps: otpData
       });
     } catch (error) {
-      console.error('[ERROR] Error fetching OTPs from database:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: 'Failed to fetch OTPs',
-        details: error.message 
-      });
+      console.error('Error fetching OTPs from database:', error);
+      return res.status(500).json({ error: 'Failed to fetch OTPs' });
     }
   });
   
   console.log('Debug endpoint enabled: /api/debug/otp-store');
-} else {
-  console.log('Debug endpoints are disabled in production');
 }
 
 // Start the server only if this file is run directly
