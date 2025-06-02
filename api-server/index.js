@@ -78,8 +78,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// Email transporter setup with Render environment variables
-const transporter = nodemailer.createTransport({
+// Enhanced email transporter setup with debugging
+const emailConfig = {
   host: process.env.EMAIL_HOST || 'smtp.hostinger.com',
   port: parseInt(process.env.EMAIL_PORT || '465', 10),
   secure: true, // true for 465, false for other ports
@@ -90,15 +90,30 @@ const transporter = nodemailer.createTransport({
   tls: {
     // Do not fail on invalid certs in development
     rejectUnauthorized: process.env.NODE_ENV !== 'production'
+  },
+  // Add debug logging
+  debug: true,
+  logger: true
+};
+
+console.log('📧 Email Configuration:');
+console.log('- Host:', emailConfig.host);
+console.log('- Port:', emailConfig.port);
+console.log('- Secure:', emailConfig.secure);
+console.log('- User:', emailConfig.auth.user);
+console.log('- Password:', emailConfig.auth.pass ? '[HIDDEN]' : 'Not set');
+
+// Create transporter with enhanced error handling
+const transporter = nodemailer.createTransport(emailConfig);
+
+// Verify connection configuration
+transporter.verify(function(error, success) {
+  if (error) {
+    console.error('❌ SMTP Connection Error:', error);
+  } else {
+    console.log('✅ SMTP Server is ready to take our messages');
   }
 });
-
-// Log email configuration (without sensitive data)
-console.log('📧 Email Configuration:');
-console.log(`- Host: ${process.env.EMAIL_HOST || 'Not set'}`);
-console.log(`- Port: ${process.env.EMAIL_PORT || 'Not set'}`);
-console.log(`- User: ${process.env.EMAIL_USER ? 'Set' : 'Not set'}`);
-console.log(`- Password: ${process.env.EMAIL_PASSWORD ? 'Set' : 'Not set'}`);
 
 // OTP database functions
 const otpDb = {
@@ -273,38 +288,54 @@ app.post('/api/auth/request-otp', async (req, res) => {
       throw new Error('Failed to store OTP in database');
     }
     
-    // Send the OTP via email
-    const mailOptions = {
-      from: `"UniVendor" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: 'Your Verification Code',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #4F46E5;">UniVendor Verification</h2>
-          <p>Your verification code is:</p>
-          <div style="background-color: #f4f4f9; padding: 15px; font-size: 24px; font-weight: bold; text-align: center; letter-spacing: 5px; margin: 20px 0;">
-            ${otp}
+    try {
+      // Send the OTP via email
+      const mailOptions = {
+        from: `"UniVendor" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: 'Your Verification Code',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Your Verification Code</h2>
+            <p>Hello,</p>
+            <p>Your verification code is: <strong>${otp}</strong></p>
+            <p>This code will expire in 10 minutes.</p>
+            <p>If you didn't request this code, you can safely ignore this email.</p>
+            <p>Best regards,<br>The UniVendor Team</p>
           </div>
-          <p>This code will expire in 10 minutes.</p>
-          <p>If you didn't request this code, please ignore this email.</p>
-        </div>
-      `
-    };
-    
-    await transporter.sendMail(mailOptions);
-    
-    // Store OTP in database with 10-minute expiration
-    await otpDb.storeOtp(email, otp, 10);
-    
-    // In development, log the OTP to console
-    console.log(`OTP for ${email}: ${otp}`);
-    
-    return res.status(200).json({
-      success: true,
-      message: 'OTP sent successfully',
-      // Only include previewUrl in development
-      ...(process.env.NODE_ENV !== 'production' && { previewUrl: `otp:${otp}` })
-    });
+        `
+      };
+      
+      console.log(' Sending email with options:', {
+        from: mailOptions.from,
+        to: mailOptions.to,
+        subject: mailOptions.subject
+      });
+      
+      // Send the email with detailed error handling
+      const info = await transporter.sendMail(mailOptions);
+      
+      console.log(' Email sent successfully:', info.messageId);
+      console.log(` OTP email sent to ${email}`);
+      
+      return res.status(200).json({
+        success: true,
+        message: 'OTP sent successfully',
+        // Only include previewUrl in development
+        ...(process.env.NODE_ENV !== 'production' && { previewUrl: `otp:${otp}` })
+      });
+      
+    } catch (emailError) {
+      console.error(' Email sending failed:', emailError);
+      console.error('Error details:', {
+        code: emailError.code,
+        command: emailError.command,
+        response: emailError.response,
+        stack: emailError.stack
+      });
+      
+      throw new Error('Failed to send OTP email. Please try again later.');
+    }
   } catch (error) {
     console.error('Error in OTP request:', error);
     return res.status(500).json({
