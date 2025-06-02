@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRoute, Link, useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart, ShoppingBag, ArrowRight } from 'lucide-react';
+import { ShoppingCart, ShoppingBag, ArrowRight, Heart, Star, ChevronLeft, Menu } from "lucide-react";
+import { Link } from "wouter";
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/components/ui/use-toast';
@@ -36,6 +37,55 @@ interface Product {
   inventory_quantity: number;
   status: string;
   variants: ProductVariant[];
+}
+
+// Cart Counter Component
+function CartCounter() {
+  const [cartItemCount, setCartItemCount] = useState(0);
+
+  useEffect(() => {
+    // Function to update cart count
+    const updateCartCount = () => {
+      try {
+        const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+        const count = cart.reduce((total: number, item: any) => total + (item.quantity || 0), 0);
+        setCartItemCount(count);
+      } catch (error) {
+        console.error('Error reading cart from localStorage:', error);
+        setCartItemCount(0);
+      }
+    };
+
+    // Update count on mount
+    updateCartCount();
+
+    // Set up storage event listener to update count when cart changes
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'cart') {
+        updateCartCount();
+      }
+    };
+
+    // Listen for storage events (when cart is updated from another tab)
+    window.addEventListener('storage', handleStorageChange);
+
+    // Custom event for same-tab updates
+    const handleCustomEvent = () => updateCartCount();
+    window.addEventListener('cartUpdated', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('cartUpdated', handleCustomEvent);
+    };
+  }, []);
+
+  if (cartItemCount <= 0) return null;
+  
+  return (
+    <span className="absolute -top-2 -right-2 bg-indigo-600 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+      {cartItemCount > 99 ? '99+' : cartItemCount}
+    </span>
+  );
 }
 
 export default function ProductDetailPage() {
@@ -515,12 +565,54 @@ export default function ProductDetailPage() {
   
   // Function to buy now (add to cart and go to cart page)
   const handleBuyNow = () => {
+    // Clear any previous validation errors
+    setValidationError(null);
+    
+    // Check if both color and size are selected
+    if (!selectedColor) {
+      setValidationError("Please select a color");
+      return;
+    }
+    
+    if (!selectedSize) {
+      setValidationError("Please select a size");
+      return;
+    }
+    
+    // If validations pass, add to cart and redirect
     handleAddToCart();
     window.location.href = '/cart.html';
   };
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <header className="bg-white shadow-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Link href="/" className="text-gray-500 hover:text-gray-600">
+                <ChevronLeft className="h-6 w-6" />
+              </Link>
+              <h1 className="ml-4 text-xl font-semibold text-gray-900 line-clamp-1">
+                {product.name}
+              </h1>
+            </div>
+            <div className="flex items-center space-x-4">
+              <Link href="/cart.html" className="relative text-gray-600 hover:text-gray-900">
+                <ShoppingCart className="h-6 w-6" />
+                <CartCounter />
+              </Link>
+            </div>
+          </div>
+          <div className="mt-2 flex items-center text-sm text-gray-600">
+            <Link href="/" className="text-primary hover:underline">Home</Link>
+            <span className="mx-2">/</span>
+            <Link href="/products" className="text-primary hover:underline">Products</Link>
+            <span className="mx-2">/</span>
+            <span className="text-gray-500 line-clamp-1">{product.name}</span>
+          </div>
+        </div>
+      </header>
       <div className="mb-6">
         <Link href="/" className="text-primary hover:underline">&larr; Back to Home</Link>
       </div>
