@@ -233,6 +233,21 @@
 
       // Initialize
       loadCart();
+      
+      // Add animation for cart items
+      document.addEventListener('DOMContentLoaded', function() {
+        const cartItems = document.querySelectorAll('.cart-item');
+        cartItems.forEach((item, index) => {
+          item.style.opacity = '0';
+          item.style.transform = 'translateY(20px)';
+          item.style.transition = 'all 0.3s ease';
+          
+          setTimeout(() => {
+            item.style.opacity = '1';
+            item.style.transform = 'translateY(0)';
+          }, 100 * index);
+        });
+      });
     });
   </script>
 </body>
