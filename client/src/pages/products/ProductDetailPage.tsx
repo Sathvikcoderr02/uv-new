@@ -598,10 +598,10 @@ export default function ProductDetailPage() {
               </h1>
             </div>
             <div className="flex items-center space-x-4">
-              <Link href="/cart.html" className="relative text-gray-600 hover:text-gray-900">
+              <a href="/cart.html" className="relative text-gray-600 hover:text-gray-900">
                 <ShoppingCart className="h-6 w-6" />
                 <CartCounter />
-              </Link>
+              </a>
             </div>
           </div>
           <div className="mt-2 flex items-center text-sm text-gray-600">
