@@ -78,28 +78,37 @@ app.use((req, res, next) => {
   next();
 });
 
-// Enhanced email transporter setup with debugging
+// Enhanced email transporter setup with detailed debugging
 const emailConfig = {
   host: process.env.EMAIL_HOST || 'smtp.hostinger.com',
-  port: parseInt(process.env.EMAIL_PORT || '465', 10),
+  port: 465, // Hostinger requires port 465 for SSL
   secure: true, // true for 465, false for other ports
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD,
-    // Explicitly use LOGIN auth method
-    method: 'LOGIN'
+    pass: process.env.EMAIL_PASSWORD
   },
-  tls: {
-    // Do not fail on invalid certs in development
-    rejectUnauthorized: process.env.NODE_ENV !== 'production',
-    // Additional TLS options
-    minVersion: 'TLSv1.2'
-  },
-  // Add debug logging
+  // Debug settings
   debug: true,
   logger: true,
-  // Disable some authentication methods that might cause issues
-  authMethods: ['LOGIN', 'PLAIN']
+  // Connection settings
+  pool: true,
+  // Authentication method
+  authMethod: 'PLAIN', // Try 'PLAIN' first, then 'LOGIN' if needed
+  // TLS options
+  tls: {
+    rejectUnauthorized: false, // Accept self-signed certs
+    minVersion: 'TLSv1.2',
+    ciphers: 'SSLv3',
+    // Additional security options
+    secureProtocol: 'TLSv1_2_method'
+  },
+  // Socket timeout
+  connectionTimeout: 10000, // 10 seconds
+  greetingTimeout: 10000,    // 10 seconds
+  socketTimeout: 10000,      // 10 seconds
+  // Disable auto-reconnect
+  disableFileAccess: true,
+  disableUrlAccess: true
 };
 
 // URL decode the password if it's URL encoded
@@ -121,41 +130,66 @@ console.log('- Password:', emailConfig.auth.pass ? '[HIDDEN]' : 'Not set');
 // Create transporter with enhanced error handling
 const transporter = nodemailer.createTransport(emailConfig);
 
-// Test email function
+// Test email function with detailed debugging
 async function testEmailConnection() {
+  console.log('\n🔍 Starting SMTP connection test...');
+  
   try {
-    console.log('🔍 Testing SMTP connection...');
+    // Test 1: Verify SMTP connection
+    console.log('\n1️⃣ Testing SMTP connection...');
     await transporter.verify();
     console.log('✅ SMTP Connection verified');
     
-    // Try to send a test email
-    console.log('📤 Sending test email...');
-    const info = await transporter.sendMail({
-      from: `"Test" <${emailConfig.auth.user}>`,
-      to: emailConfig.auth.user, // Send to self
-      subject: 'SMTP Test Email',
+    // Test 2: Send a test email
+    console.log('\n2️⃣ Sending test email...');
+    const testEmail = {
+      from: `"UniVendor Test" <${emailConfig.auth.user}>`,
+      to: emailConfig.auth.user,
+      subject: 'UniVendor SMTP Test',
       text: 'This is a test email from UniVendor API',
-      html: '<p>This is a test email from <b>UniVendor API</b></p>'
-    });
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>SMTP Test Successful! 🎉</h2>
+          <p>Your UniVendor email configuration is working correctly.</p>
+          <p><strong>Server:</strong> ${emailConfig.host}:${emailConfig.port}</p>
+          <p><strong>User:</strong> ${emailConfig.auth.user}</p>
+          <p><strong>Time:</strong> ${new Date().toISOString()}</p>
+        </div>
+      `
+    };
     
-    console.log('✅ Test email sent successfully:', info.messageId);
+    const info = await transporter.sendMail(testEmail);
+    console.log('✅ Test email sent successfully!');
+    console.log('   Message ID:', info.messageId);
+    console.log('   Response:', info.response);
+    
     return true;
+    
   } catch (error) {
-    console.error('❌ SMTP Test Failed:');
-    console.error('Error Code:', error.code);
-    console.error('Command:', error.command);
-    console.error('Response:', error.response);
-    console.error('Stack:', error.stack);
+    console.error('\n❌ SMTP Test Failed!');
+    console.error('\n📋 Error Details:');
+    console.error('- Code:', error.code);
+    console.error('- Command:', error.command);
+    console.error('- Response Code:', error.responseCode);
+    console.error('- Response:', error.response);
     
     if (error.responseCode === 535) {
       console.error('\n🔑 Authentication failed. Please check:');
       console.error('1. Email and password are correct');
       console.error('2. SMTP server allows connections from Render IPs');
       console.error('3. Account is not locked due to too many failed attempts');
-      console.error('4. If using Gmail, enable "Less secure app access" or use App Password');
+      console.error('4. If using Hostinger, check SMTP settings in hPanel');
     }
     
+    // Additional debug info
+    console.error('\n🔧 Debug Information:');
+    console.error('- Node Version:', process.version);
+    console.error('- Nodemailer Version:', require('nodemailer/package.json').version);
+    console.error('- Environment:', process.env.NODE_ENV || 'development');
+    
     return false;
+  } finally {
+    console.log('\n🏁 SMTP Test completed');
   }
 }
 
