@@ -78,20 +78,27 @@ app.use((req, res, next) => {
   next();
 });
 
-// Email transporter setup
+// Email transporter setup with Render environment variables
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.hostinger.com',
-  port: parseInt(process.env.SMTP_PORT || '465', 10),
-  secure: process.env.SMTP_SECURE !== 'false', // true for 465, false for other ports
+  host: process.env.EMAIL_HOST || 'smtp.hostinger.com',
+  port: parseInt(process.env.EMAIL_PORT || '465', 10),
+  secure: true, // true for 465, false for other ports
   auth: {
-    user: process.env.SMTP_USER || 'verification@lelekart.com',
-    pass: process.env.SMTP_PASSWORD || ''
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD
   },
   tls: {
-    // Do not fail on invalid certs
+    // Do not fail on invalid certs in development
     rejectUnauthorized: process.env.NODE_ENV !== 'production'
   }
 });
+
+// Log email configuration (without sensitive data)
+console.log('📧 Email Configuration:');
+console.log(`- Host: ${process.env.EMAIL_HOST || 'Not set'}`);
+console.log(`- Port: ${process.env.EMAIL_PORT || 'Not set'}`);
+console.log(`- User: ${process.env.EMAIL_USER ? 'Set' : 'Not set'}`);
+console.log(`- Password: ${process.env.EMAIL_PASSWORD ? 'Set' : 'Not set'}`);
 
 // OTP database functions
 const otpDb = {
@@ -268,7 +275,7 @@ app.post('/api/auth/request-otp', async (req, res) => {
     
     // Send the OTP via email
     const mailOptions = {
-      from: '"UniVendor" <verification@lelekart.com>',
+      from: `"UniVendor" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: 'Your Verification Code',
       html: `
