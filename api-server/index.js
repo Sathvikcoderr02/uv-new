@@ -80,35 +80,31 @@ app.use((req, res, next) => {
 
 // Enhanced email transporter setup with detailed debugging
 const emailConfig = {
-  host: process.env.EMAIL_HOST || 'smtp.hostinger.com',
+  host: 'smtp.hostinger.com', // Hardcoded to ensure consistency
   port: 465, // Hostinger requires port 465 for SSL
   secure: true, // true for 465, false for other ports
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASSWORD
   },
-  // Debug settings
   debug: true,
   logger: true,
-  // Connection settings
   pool: true,
-  // Authentication method
-  authMethod: 'PLAIN', // Try 'PLAIN' first, then 'LOGIN' if needed
-  // TLS options
+  maxConnections: 5,
+  maxMessages: 100,
+  authMethod: 'PLAIN',
   tls: {
     rejectUnauthorized: false, // Accept self-signed certs
     minVersion: 'TLSv1.2',
-    ciphers: 'SSLv3',
-    // Additional security options
-    secureProtocol: 'TLSv1_2_method'
+    ciphers: 'HIGH:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!SRP:!CAMELLIA'
   },
-  // Socket timeout
-  connectionTimeout: 10000, // 10 seconds
-  greetingTimeout: 10000,    // 10 seconds
-  socketTimeout: 10000,      // 10 seconds
-  // Disable auto-reconnect
+  connectionTimeout: 30000, // 30 seconds
+  greetingTimeout: 30000,    // 30 seconds
+  socketTimeout: 60000,      // 60 seconds
   disableFileAccess: true,
-  disableUrlAccess: true
+  disableUrlAccess: true,
+  requireTLS: false,
+  ignoreTLS: true
 };
 
 // URL decode the password if it's URL encoded
@@ -130,6 +126,34 @@ console.log('- Password:', emailConfig.auth.pass ? '[HIDDEN]' : 'Not set');
 // Create transporter with enhanced error handling
 const transporter = nodemailer.createTransport(emailConfig);
 
+// Enhanced sendMail function with retry logic
+async function sendMailWithRetry(mailOptions, maxRetries = 3) {
+  let lastError;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`📤 Sending email (Attempt ${attempt}/${maxRetries})`);
+      const info = await transporter.sendMail(mailOptions);
+      console.log('✅ Email sent successfully:', info.messageId);
+      return info;
+    } catch (error) {
+      lastError = error;
+      console.error(`❌ Attempt ${attempt} failed:`, error.message);
+      
+      if (attempt < maxRetries) {
+        // Wait before retrying (exponential backoff)
+        const delay = Math.pow(2, attempt) * 1000;
+        console.log(`⏳ Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  // If we get here, all attempts failed
+  console.error('❌ All email sending attempts failed');
+  throw lastError;
+}
+
 // Test email function with detailed debugging
 async function testEmailConnection() {
   console.log('\n🔍 Starting SMTP connection test...');
@@ -145,21 +169,36 @@ async function testEmailConnection() {
     const testEmail = {
       from: `"UniVendor Test" <${emailConfig.auth.user}>`,
       to: emailConfig.auth.user,
-      subject: 'UniVendor SMTP Test',
+      subject: '✅ UniVendor SMTP Test',
       text: 'This is a test email from UniVendor API',
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>SMTP Test Successful! 🎉</h2>
-          <p>Your UniVendor email configuration is working correctly.</p>
-          <p><strong>Server:</strong> ${emailConfig.host}:${emailConfig.port}</p>
-          <p><strong>User:</strong> ${emailConfig.auth.user}</p>
-          <p><strong>Time:</strong> ${new Date().toISOString()}</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+          <div style="background-color: #4F46E5; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0;">UniVendor</h1>
+          </div>
+          <div style="padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+            <h2 style="color: #111827; margin-top: 0;">SMTP Test Successful! 🎉</h2>
+            <p>Your UniVendor email configuration is working correctly.</p>
+            
+            <div style="background-color: #f3f4f6; padding: 15px; margin: 20px 0; border-radius: 6px; font-size: 14px;">
+              <p style="margin: 5px 0;"><strong>Server:</strong> ${emailConfig.host}:${emailConfig.port}</p>
+              <p style="margin: 5px 0;"><strong>User:</strong> ${emailConfig.auth.user}</p>
+              <p style="margin: 5px 0;"><strong>Time:</strong> ${new Date().toISOString()}</p>
+              <p style="margin: 5px 0;"><strong>Environment:</strong> ${process.env.NODE_ENV || 'development'}</p>
+            </div>
+            
+            <p>This email confirms that your SMTP settings are correctly configured.</p>
+          </div>
+          <div style="text-align: center; margin-top: 20px; color: #6b7280; font-size: 12px;">
+            <p>© ${new Date().getFullYear()} UniVendor. All rights reserved.</p>
+          </div>
         </div>
       `
     };
     
-    const info = await transporter.sendMail(testEmail);
+    const info = await sendMailWithRetry(testEmail);
     console.log('✅ Test email sent successfully!');
+    console.log('   To:', testEmail.to);
     console.log('   Message ID:', info.messageId);
     console.log('   Response:', info.response);
     
@@ -378,34 +417,54 @@ app.post('/api/auth/request-otp', async (req, res) => {
     }
     
     try {
-      // Send the OTP via email
+      // Prepare OTP email
       const mailOptions = {
         from: `"UniVendor" <${process.env.EMAIL_USER}>`,
         to: email,
-        subject: 'Your Verification Code',
+        subject: 'Your UniVendor Verification Code',
         html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Your Verification Code</h2>
-            <p>Hello,</p>
-            <p>Your verification code is: <strong>${otp}</strong></p>
-            <p>This code will expire in 10 minutes.</p>
-            <p>If you didn't request this code, you can safely ignore this email.</p>
-            <p>Best regards,<br>The UniVendor Team</p>
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+            <div style="background-color: #4F46E5; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+              <h1 style="color: white; margin: 0;">UniVendor</h1>
+            </div>
+            <div style="padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
+              <h2 style="color: #111827; margin-top: 0;">Your Verification Code</h2>
+              <p>Hello,</p>
+              <p>Please use the following verification code to complete your sign-in:</p>
+              <div style="background-color: #f3f4f6; padding: 15px; text-align: center; margin: 25px 0; border-radius: 6px; font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #111827;">
+                ${otp}
+              </div>
+              <p>This code will expire in 10 minutes.</p>
+              <p>If you didn't request this code, please ignore this email or contact support if you have any concerns.</p>
+              <p>Best regards,<br>The UniVendor Team</p>
+            </div>
+            <div style="text-align: center; margin-top: 20px; color: #6b7280; font-size: 12px;">
+              <p> ${new Date().getFullYear()} UniVendor. All rights reserved.</p>
+            </div>
           </div>
-        `
+        `,
+        text: `UniVendor Verification Code
+
+Hello,
+
+Please use the following verification code to complete your sign-in:
+
+${otp}
+
+This code will expire in 10 minutes.
+
+If you didn't request this code, please ignore this email or contact support if you have any concerns.
+
+Best regards,
+The UniVendor Team`
       };
       
-      console.log(' Sending email with options:', {
-        from: mailOptions.from,
-        to: mailOptions.to,
-        subject: mailOptions.subject
-      });
+      // Send the email with retry logic
+      const info = await sendMailWithRetry(mailOptions);
       
-      // Send the email with detailed error handling
-      const info = await transporter.sendMail(mailOptions);
-      
-      console.log(' Email sent successfully:', info.messageId);
-      console.log(` OTP email sent to ${email}`);
+      console.log('✅ OTP email sent successfully!');
+      console.log('   To:', email);
+      console.log('   Message ID:', info.messageId);
       
       return res.status(200).json({
         success: true,
