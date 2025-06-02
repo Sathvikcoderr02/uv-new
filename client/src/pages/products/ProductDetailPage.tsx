@@ -627,29 +627,27 @@ export default function ProductDetailPage() {
               
               {/* Size Selection */}
               <div className="mt-8 mb-4">
-                <h3 className="text-sm font-medium mb-2">Size</h3>
-                <RadioGroup 
-                  value={selectedSize || ""} 
-                  onValueChange={handleSizeSelect} 
-                  className="flex flex-wrap gap-2"
-                  disabled={!selectedColor}
-                >
-                  {getAllSizes().map(size => (
-                    <div key={size} className="flex items-center space-x-2">
-                      <RadioGroupItem 
-                        value={size} 
-                        id={`size-${size}`} 
-                        disabled={!selectedColor || !isSizeAvailable(size)}
-                      />
-                      <Label 
-                        htmlFor={`size-${size}`} 
-                        className={`uppercase ${!isSizeAvailable(size) ? 'text-gray-400' : ''}`}
-                      >
-                        {size}
-                      </Label>
-                    </div>
+                <h3 className="text-sm font-medium mb-3">Size</h3>
+                <div className="flex flex-wrap gap-2">
+                  {getAllSizes().map((size: string) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => handleSizeSelect(size)}
+                      disabled={!selectedColor || !isSizeAvailable(size)}
+                      className={`
+                        w-12 h-12 flex items-center justify-center rounded-md border-2 text-sm font-medium
+                        ${selectedSize === size 
+                          ? 'border-orange-500 bg-orange-50 text-orange-700' 
+                          : 'border-gray-200 hover:border-orange-300'}
+                        ${!isSizeAvailable(size) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                        transition-colors duration-200
+                      `}
+                    >
+                      {size}
+                    </button>
                   ))}
-                </RadioGroup>
+                </div>
               </div>
               
               {/* Availability */}
@@ -712,15 +710,11 @@ export default function ProductDetailPage() {
               </Alert>
             )}
             
-            <div className="flex flex-col space-y-3 mt-4">
+            <div className="flex flex-col sm:flex-row gap-4">
               <Button 
                 onClick={handleAddToCart}
                 disabled={!selectedVariant}
-                className="w-full py-2 rounded-md text-sm font-medium transition-colors duration-200 hover:bg-orange-600"
-                style={{
-                  backgroundColor: '#EA580C', // Dark orange
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                }}
+                className="flex-1 bg-amber-100 hover:bg-amber-200 text-amber-700 hover:text-amber-900 border border-amber-300"
               >
                 <ShoppingCart className="mr-2 h-4 w-4" /> Add to Cart
               </Button>
@@ -728,8 +722,7 @@ export default function ProductDetailPage() {
               <Button 
                 onClick={handleBuyNow}
                 disabled={!selectedVariant}
-                variant="outline"
-                className="w-full py-2 rounded-md text-sm font-medium border border-orange-300 text-orange-600 hover:bg-orange-50 hover:border-orange-400 transition-colors duration-200"
+                className="flex-1 bg-orange-500 hover:bg-orange-600 text-white border-orange-500"
               >
                 <ShoppingBag className="mr-2 h-4 w-4" /> Buy Now
               </Button>
