@@ -85,16 +85,31 @@ const emailConfig = {
   secure: true, // true for 465, false for other ports
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD
+    pass: process.env.EMAIL_PASSWORD,
+    // Explicitly use LOGIN auth method
+    method: 'LOGIN'
   },
   tls: {
     // Do not fail on invalid certs in development
-    rejectUnauthorized: process.env.NODE_ENV !== 'production'
+    rejectUnauthorized: process.env.NODE_ENV !== 'production',
+    // Additional TLS options
+    minVersion: 'TLSv1.2'
   },
   // Add debug logging
   debug: true,
-  logger: true
+  logger: true,
+  // Disable some authentication methods that might cause issues
+  authMethods: ['LOGIN', 'PLAIN']
 };
+
+// URL decode the password if it's URL encoded
+if (emailConfig.auth.pass) {
+  try {
+    emailConfig.auth.pass = decodeURIComponent(emailConfig.auth.pass);
+  } catch (e) {
+    console.error('Error decoding password:', e.message);
+  }
+}
 
 console.log('📧 Email Configuration:');
 console.log('- Host:', emailConfig.host);
@@ -106,14 +121,54 @@ console.log('- Password:', emailConfig.auth.pass ? '[HIDDEN]' : 'Not set');
 // Create transporter with enhanced error handling
 const transporter = nodemailer.createTransport(emailConfig);
 
-// Verify connection configuration
-transporter.verify(function(error, success) {
-  if (error) {
-    console.error('❌ SMTP Connection Error:', error);
-  } else {
-    console.log('✅ SMTP Server is ready to take our messages');
+// Test email function
+async function testEmailConnection() {
+  try {
+    console.log('🔍 Testing SMTP connection...');
+    await transporter.verify();
+    console.log('✅ SMTP Connection verified');
+    
+    // Try to send a test email
+    console.log('📤 Sending test email...');
+    const info = await transporter.sendMail({
+      from: `"Test" <${emailConfig.auth.user}>`,
+      to: emailConfig.auth.user, // Send to self
+      subject: 'SMTP Test Email',
+      text: 'This is a test email from UniVendor API',
+      html: '<p>This is a test email from <b>UniVendor API</b></p>'
+    });
+    
+    console.log('✅ Test email sent successfully:', info.messageId);
+    return true;
+  } catch (error) {
+    console.error('❌ SMTP Test Failed:');
+    console.error('Error Code:', error.code);
+    console.error('Command:', error.command);
+    console.error('Response:', error.response);
+    console.error('Stack:', error.stack);
+    
+    if (error.responseCode === 535) {
+      console.error('\n🔑 Authentication failed. Please check:');
+      console.error('1. Email and password are correct');
+      console.error('2. SMTP server allows connections from Render IPs');
+      console.error('3. Account is not locked due to too many failed attempts');
+      console.error('4. If using Gmail, enable "Less secure app access" or use App Password');
+    }
+    
+    return false;
   }
-});
+}
+
+// Test email connection on startup
+if (process.env.NODE_ENV !== 'test') {
+  testEmailConnection().then(success => {
+    if (success) {
+      console.log('✅ Email service is properly configured');
+    } else {
+      console.error('❌ Email service configuration failed');
+    }
+  });
+}
 
 // OTP database functions
 const otpDb = {
