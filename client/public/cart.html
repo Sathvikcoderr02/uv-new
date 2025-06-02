@@ -235,6 +235,11 @@
         `;
 
         cartContent.innerHTML = html;
+        
+        // Animate cart items after rendering
+        setTimeout(() => {
+          animateCartItems();
+        }, 100);
       }
 
       // Render empty cart
@@ -252,8 +257,8 @@
       // Initialize
       loadCart();
       
-      // Add animation for cart items
-      document.addEventListener('DOMContentLoaded', function() {
+      // Function to animate cart items
+      function animateCartItems() {
         const cartItems = document.querySelectorAll('.cart-item');
         cartItems.forEach((item, index) => {
           item.style.opacity = '0';
@@ -265,7 +270,7 @@
             item.style.transform = 'translateY(0)';
           }, 100 * index);
         });
-      });
+      }
     });
   </script>
 </body>
