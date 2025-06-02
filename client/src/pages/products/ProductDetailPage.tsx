@@ -716,10 +716,10 @@ export default function ProductDetailPage() {
               <Button 
                 onClick={handleAddToCart}
                 disabled={!selectedVariant}
-                className="w-full h-14 rounded-full text-base font-medium transition-colors duration-200"
+                className="w-full h-14 rounded-full text-base font-medium transition-colors duration-200 hover:bg-orange-700"
                 style={{
-                  background: 'linear-gradient(90deg, #4F46E5 0%, #7C3AED 100%)',
-                  boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.3), 0 2px 4px -1px rgba(79, 70, 229, 0.2)'
+                  backgroundColor: '#EA580C', // Dark orange
+                  boxShadow: '0 4px 6px -1px rgba(234, 88, 12, 0.3), 0 2px 4px -1px rgba(234, 88, 12, 0.2)'
                 }}
               >
                 <ShoppingCart className="mr-2 h-5 w-5" /> Add to Cart
@@ -729,7 +729,7 @@ export default function ProductDetailPage() {
                 onClick={handleBuyNow}
                 disabled={!selectedVariant}
                 variant="outline"
-                className="w-full h-14 rounded-full text-base font-medium border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 transition-colors duration-200"
+                className="w-full h-14 rounded-full text-base font-medium border-2 border-orange-500 text-orange-600 hover:bg-orange-50 transition-colors duration-200"
               >
                 <ShoppingBag className="mr-2 h-5 w-5" /> Buy Now
               </Button>
