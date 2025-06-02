@@ -712,26 +712,26 @@ export default function ProductDetailPage() {
               </Alert>
             )}
             
-            <div className="flex flex-col space-y-4 mt-8">
+            <div className="flex flex-col space-y-3 mt-4">
               <Button 
                 onClick={handleAddToCart}
                 disabled={!selectedVariant}
-                className="w-full h-14 rounded-full text-base font-medium transition-colors duration-200 hover:bg-orange-700"
+                className="w-full py-2 rounded-md text-sm font-medium transition-colors duration-200 hover:bg-orange-600"
                 style={{
                   backgroundColor: '#EA580C', // Dark orange
-                  boxShadow: '0 4px 6px -1px rgba(234, 88, 12, 0.3), 0 2px 4px -1px rgba(234, 88, 12, 0.2)'
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
                 }}
               >
-                <ShoppingCart className="mr-2 h-5 w-5" /> Add to Cart
+                <ShoppingCart className="mr-2 h-4 w-4" /> Add to Cart
               </Button>
               
               <Button 
                 onClick={handleBuyNow}
                 disabled={!selectedVariant}
                 variant="outline"
-                className="w-full h-14 rounded-full text-base font-medium border-2 border-orange-500 text-orange-600 hover:bg-orange-50 transition-colors duration-200"
+                className="w-full py-2 rounded-md text-sm font-medium border border-orange-300 text-orange-600 hover:bg-orange-50 hover:border-orange-400 transition-colors duration-200"
               >
-                <ShoppingBag className="mr-2 h-5 w-5" /> Buy Now
+                <ShoppingBag className="mr-2 h-4 w-4" /> Buy Now
               </Button>
             </div>
           </div>
